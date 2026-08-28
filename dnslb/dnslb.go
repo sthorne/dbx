@@ -2,33 +2,33 @@
 // clusters that publish multiple servers behind a single DNS name, such as a
 // CockroachDB cluster.
 //
-// A Balancer resolves any DNS names in the connection config and expands them
-// to the underlying IP addresses. Candidate servers are ordered so that the
-// server with the lowest observed latency is preferred, servers that have
-// never been tried are explored first, and servers with consecutive dial
-// failures are pushed to the back. Because dbx resolves hosts on every new
-// connection attempt, DNS changes (nodes added or removed from the cluster)
-// are picked up automatically as connections are established.
+// [Pool] is the primary API. It expands the DNS names in the connection
+// config to the underlying server IP addresses, maintains a connection pool
+// with standing connections to every server, and routes each operation to a
+// server chosen from current activity and latency metrics: the
+// lowest-latency idle server is preferred, load spreads as servers get busy,
+// and servers failing to accept connections are avoided until they recover.
+// DNS is re-resolved in the background so servers joining or leaving the
+// cluster are picked up automatically.
 //
-// The Balancer also tracks per-server metrics over time: connection attempts
-// and failures, availability, active connections, query counts and errors,
-// slow responses, and latency (min/max/average and an exponentially weighted
-// moving average). Metrics are available programmatically via
-// [Balancer.Metrics] and as a printable table via [Balancer.Report].
-//
-// Typical usage with a connection pool:
-//
-//	balancer := dnslb.New(dnslb.Config{})
-//
-//	config, err := pgxpool.ParseConfig("postgres://root@cockroachdb.internal:26257/defaultdb")
+//	pool, err := dnslb.NewPool(ctx, "postgres://root@cockroachdb.internal:26257/defaultdb", dnslb.PoolConfig{})
 //	if err != nil { ... }
-//	balancer.Apply(config.ConnConfig)
+//	defer pool.Close()
 //
-//	pool, err := pgxpool.NewWithConfig(ctx, config)
-//	if err != nil { ... }
+//	rows, err := pool.Query(ctx, "select ...") // routed to the best server
 //
-//	// Later, print metrics:
-//	fmt.Println(balancer.Report())
+//	fmt.Println(pool.Report()) // printable per-server metrics
+//
+// Per-server metrics are tracked over time: connection attempts and
+// failures, availability, active connections, query counts and errors, slow
+// responses, and latency (min/max/average and an exponentially weighted
+// moving average). Metrics are available programmatically via [Pool.Metrics]
+// and as a printable table via [Pool.Report].
+//
+// [Balancer] is the lower-level building block: it tracks the metrics and
+// can be wired directly into a single dbx or pgxpool config via
+// [Balancer.Apply], which orders connection attempts by latency without
+// maintaining per-server pools.
 package dnslb
 
 import (

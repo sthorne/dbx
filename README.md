@@ -68,34 +68,35 @@ For a step-by-step walkthrough, see the [getting started guide](https://github.c
 
 The `dnslb` package resolves any DNS names in the connection config and expands them to the underlying IP addresses,
 so a single DNS name pointing at a CockroachDB (or any multi-server PostgreSQL-compatible) cluster fans out across all
-nodes. New connections prefer the server with the lowest observed latency, never-tried servers are explored first, and
-servers that are failing to accept connections are pushed to the back until they recover. DNS is re-resolved on every
-new connection attempt, so cluster membership changes are picked up automatically.
+nodes. `dnslb.Pool` maintains a connection pool with standing connections to every server and cycles each operation
+across them based on current activity and latency metrics: each query, batch, or transaction is routed to the server
+with the lowest score — `EWMA latency × (in-use connections + 1)` plus a penalty for servers failing to accept
+connections — so the fastest idle server is preferred, load spreads as servers get busy, and unavailable servers are
+avoided until they recover. DNS is re-resolved in the background (every 30s by default), adding pools for servers that
+join the cluster and draining pools for servers that leave, and every server is probed each cycle so latency and
+availability metrics stay fresh even for idle servers.
 
 Per-server metrics are tracked over time — availability, dial attempts and failures, active connections, query counts
 and errors, slow responses, and min/max/average/EWMA latency — and are available programmatically via
-`Balancer.Metrics()` or as a printable table via `Balancer.Report()`.
+`Pool.Metrics()` or as a printable table via `Pool.Report()`.
 
 ```go
-balancer := dnslb.New(dnslb.Config{
-	SlowThreshold: 100 * time.Millisecond, // queries at or above this count as slow
-})
-
-config, err := pgxpool.ParseConfig("postgres://root@cockroachdb.internal:26257/defaultdb")
-if err != nil {
-	// handle error
-}
-balancer.Apply(config.ConnConfig)
-
-pool, err := pgxpool.NewWithConfig(context.Background(), config)
+pool, err := dnslb.NewPool(context.Background(),
+	"postgres://root@cockroachdb.internal:26257/defaultdb",
+	dnslb.PoolConfig{
+		Config: dnslb.Config{
+			SlowThreshold: 100 * time.Millisecond, // queries at or above this count as slow
+		},
+	})
 if err != nil {
 	// handle error
 }
 defer pool.Close()
 
-// ... use the pool ...
+// Each operation is routed to the currently best server.
+rows, err := pool.Query(context.Background(), "select name, weight from widgets")
 
-fmt.Println(balancer.Report())
+fmt.Println(pool.Report())
 // SERVER     AVAIL%  DIALS  DIALERR  ACTIVE  QUERIES  ERRORS  SLOW  AVG     EWMA    MIN     MAX      LAST ERROR
 // 10.0.0.11  100.0   4      0        4       1523     0       2     1.31ms  1.24ms  0.42ms  112.4ms
 // 10.0.0.12  100.0   3      0        3       1102     1       0     1.52ms  1.48ms  0.51ms  48.21ms  unexpected EOF
