@@ -3,7 +3,7 @@ package iobufpool_test
 import (
 	"testing"
 
-	"github.com/jackc/pgx/v5/internal/iobufpool"
+	"github.com/sthorne/dbx/v5/internal/iobufpool"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -1,4 +1,4 @@
-package pgx_test
+package dbx_test
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgxtest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -87,8 +87,8 @@ func TestTxCommitWhenTxBroken(t *testing.T) {
 	}
 
 	err = tx.Commit(context.Background())
-	if err != pgx.ErrTxCommitRollback {
-		t.Fatalf("Expected error %v, got %v", pgx.ErrTxCommitRollback, err)
+	if err != dbx.ErrTxCommitRollback {
+		t.Fatalf("Expected error %v, got %v", dbx.ErrTxCommitRollback, err)
 	}
 
 	var n int64
@@ -171,13 +171,13 @@ func TestTxCommitSerializationFailure(t *testing.T) {
 	}
 	defer c1.Exec(ctx, `drop table tx_serializable_sums`)
 
-	tx1, err := c1.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	tx1, err := c1.BeginTx(ctx, dbx.TxOptions{IsoLevel: dbx.Serializable})
 	if err != nil {
 		t.Fatalf("Begin failed: %v", err)
 	}
 	defer tx1.Rollback(ctx)
 
-	tx2, err := c2.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	tx2, err := c2.BeginTx(ctx, dbx.TxOptions{IsoLevel: dbx.Serializable})
 	if err != nil {
 		t.Fatalf("Begin failed: %v", err)
 	}
@@ -276,14 +276,14 @@ func TestBeginIsoLevels(t *testing.T) {
 
 	pgxtest.SkipCockroachDB(t, conn, "Server always uses SERIALIZABLE isolation (https://www.cockroachlabs.com/docs/stable/demo-serializable.html)")
 
-	isoLevels := []pgx.TxIsoLevel{pgx.Serializable, pgx.RepeatableRead, pgx.ReadCommitted, pgx.ReadUncommitted}
+	isoLevels := []dbx.TxIsoLevel{dbx.Serializable, dbx.RepeatableRead, dbx.ReadCommitted, dbx.ReadUncommitted}
 	for _, iso := range isoLevels {
-		tx, err := conn.BeginTx(context.Background(), pgx.TxOptions{IsoLevel: iso})
+		tx, err := conn.BeginTx(context.Background(), dbx.TxOptions{IsoLevel: iso})
 		if err != nil {
 			t.Fatalf("conn.Begin failed: %v", err)
 		}
 
-		var level pgx.TxIsoLevel
+		var level dbx.TxIsoLevel
 		conn.QueryRow(context.Background(), "select current_setting('transaction_isolation')").Scan(&level)
 		if level != iso {
 			t.Errorf("Expected to be in isolation level %v but was %v", iso, level)
@@ -312,7 +312,7 @@ func TestBeginFunc(t *testing.T) {
 	_, err := conn.Exec(context.Background(), createSql)
 	require.NoError(t, err)
 
-	err = pgx.BeginFunc(context.Background(), conn, func(tx pgx.Tx) error {
+	err = dbx.BeginFunc(context.Background(), conn, func(tx dbx.Tx) error {
 		_, err := tx.Exec(context.Background(), "insert into foo(id) values (1)")
 		require.NoError(t, err)
 		return nil
@@ -341,7 +341,7 @@ func TestBeginFuncRollbackOnError(t *testing.T) {
 	_, err := conn.Exec(context.Background(), createSql)
 	require.NoError(t, err)
 
-	err = pgx.BeginFunc(context.Background(), conn, func(tx pgx.Tx) error {
+	err = dbx.BeginFunc(context.Background(), conn, func(tx dbx.Tx) error {
 		_, err := tx.Exec(context.Background(), "insert into foo(id) values (1)")
 		require.NoError(t, err)
 		return errors.New("some error")
@@ -361,7 +361,7 @@ func TestBeginReadOnly(t *testing.T) {
 	conn := mustConnectString(t, os.Getenv("PGX_TEST_DATABASE"))
 	defer closeConn(t, conn)
 
-	tx, err := conn.BeginTx(context.Background(), pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	tx, err := conn.BeginTx(context.Background(), dbx.TxOptions{AccessMode: dbx.ReadOnly})
 	if err != nil {
 		t.Fatalf("conn.Begin failed: %v", err)
 	}
@@ -379,8 +379,8 @@ func TestBeginTxBeginQuery(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
-		tx, err := conn.BeginTx(ctx, pgx.TxOptions{BeginQuery: "begin read only"})
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
+		tx, err := conn.BeginTx(ctx, dbx.TxOptions{BeginQuery: "begin read only"})
 		require.NoError(t, err)
 		defer tx.Rollback(ctx)
 
@@ -543,15 +543,15 @@ func TestTxBeginFuncNestedTransactionCommit(t *testing.T) {
 	_, err := db.Exec(context.Background(), createSql)
 	require.NoError(t, err)
 
-	err = pgx.BeginFunc(context.Background(), db, func(db pgx.Tx) error {
+	err = dbx.BeginFunc(context.Background(), db, func(db dbx.Tx) error {
 		_, err := db.Exec(context.Background(), "insert into foo(id) values (1)")
 		require.NoError(t, err)
 
-		err = pgx.BeginFunc(context.Background(), db, func(db pgx.Tx) error {
+		err = dbx.BeginFunc(context.Background(), db, func(db dbx.Tx) error {
 			_, err := db.Exec(context.Background(), "insert into foo(id) values (2)")
 			require.NoError(t, err)
 
-			err = pgx.BeginFunc(context.Background(), db, func(db pgx.Tx) error {
+			err = dbx.BeginFunc(context.Background(), db, func(db dbx.Tx) error {
 				_, err := db.Exec(context.Background(), "insert into foo(id) values (3)")
 				require.NoError(t, err)
 				return nil
@@ -587,11 +587,11 @@ func TestTxBeginFuncNestedTransactionRollback(t *testing.T) {
 	_, err := db.Exec(context.Background(), createSql)
 	require.NoError(t, err)
 
-	err = pgx.BeginFunc(context.Background(), db, func(db pgx.Tx) error {
+	err = dbx.BeginFunc(context.Background(), db, func(db dbx.Tx) error {
 		_, err := db.Exec(context.Background(), "insert into foo(id) values (1)")
 		require.NoError(t, err)
 
-		err = pgx.BeginFunc(context.Background(), db, func(db pgx.Tx) error {
+		err = dbx.BeginFunc(context.Background(), db, func(db dbx.Tx) error {
 			_, err := db.Exec(context.Background(), "insert into foo(id) values (2)")
 			require.NoError(t, err)
 			return errors.New("do a rollback")
@@ -624,7 +624,7 @@ func TestTxSendBatchClosed(t *testing.T) {
 	err = tx.Commit(context.Background())
 	require.NoError(t, err)
 
-	batch := &pgx.Batch{}
+	batch := &dbx.Batch{}
 	batch.Queue("select 1")
 	batch.Queue("select 2")
 	batch.Queue("select 3")
@@ -668,10 +668,10 @@ func TestTxRollbackOnClosedConnReturnsErrConnClosed(t *testing.T) {
 
 	err = tx.Rollback(context.Background())
 	require.ErrorIs(t, err, pgconn.ErrConnClosed)
-	require.NotErrorIs(t, err, pgx.ErrTxClosed)
+	require.NotErrorIs(t, err, dbx.ErrTxClosed)
 
 	err = tx.Rollback(context.Background())
-	require.ErrorIs(t, err, pgx.ErrTxClosed)
+	require.ErrorIs(t, err, dbx.ErrTxClosed)
 }
 
 func TestBeginTxNonFatalErrorKeepsConnAlive(t *testing.T) {
@@ -684,7 +684,7 @@ func TestBeginTxNonFatalErrorKeepsConnAlive(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err := conn.BeginTx(ctx, pgx.TxOptions{BeginQuery: "begin transaction isolation level nonsense"})
+	_, err := conn.BeginTx(ctx, dbx.TxOptions{BeginQuery: "begin transaction isolation level nonsense"})
 	require.Error(t, err)
 
 	var pgErr *pgconn.PgError
@@ -708,7 +708,7 @@ func TestBeginTxFatalErrorKillsConn(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err := conn.BeginTx(ctx, pgx.TxOptions{BeginQuery: "select pg_terminate_backend(pg_backend_pid())"})
+	_, err := conn.BeginTx(ctx, dbx.TxOptions{BeginQuery: "select pg_terminate_backend(pg_backend_pid())"})
 	require.Error(t, err)
 
 	var pgErr *pgconn.PgError

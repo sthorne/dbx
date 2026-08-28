@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgxpool"
 )
 
 var db *pgxpool.Pool
@@ -19,7 +19,7 @@ func getUrlHandler(w http.ResponseWriter, req *http.Request) {
 	switch err {
 	case nil:
 		http.Redirect(w, req, url, http.StatusSeeOther)
-	case pgx.ErrNoRows:
+	case dbx.ErrNoRows:
 		http.NotFound(w, req)
 	default:
 		http.Error(w, "Internal server error", http.StatusInternalServerError)

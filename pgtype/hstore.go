@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackc/pgx/v5/internal/pgio"
+	"github.com/sthorne/dbx/v5/internal/pgio"
 )
 
 type HstoreScanner interface {

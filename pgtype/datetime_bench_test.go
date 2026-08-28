@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/sthorne/dbx/v5/pgtype"
 )
 
 func BenchmarkDateCodecScanText(b *testing.B) {

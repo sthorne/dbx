@@ -1,4 +1,4 @@
-package pgx
+package dbx
 
 import (
 	"context"
@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/internal/sanitize"
-	"github.com/jackc/pgx/v5/internal/stmtcache"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/sthorne/dbx/v5/internal/sanitize"
+	"github.com/sthorne/dbx/v5/internal/stmtcache"
+	"github.com/sthorne/dbx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgtype"
 )
 
 // ConnConfig contains all the options used to establish a connection. It must be created by [ParseConfig] and
@@ -60,7 +60,7 @@ func (cc *ConnConfig) Copy() *ConnConfig {
 	return newConfig
 }
 
-// ConnString returns the connection string as parsed by pgx.ParseConfig into pgx.ConnConfig.
+// ConnString returns the connection string as parsed by dbx.ParseConfig into dbx.ConnConfig.
 func (cc *ConnConfig) ConnString() string { return cc.connString }
 
 // Conn is a PostgreSQL connection handle. It is not safe for concurrent usage. Use a connection pool to manage access
@@ -459,7 +459,7 @@ func (c *Conn) Ping(ctx context.Context) error {
 // PostgreSQL connection than pgx exposes.
 //
 // It is strongly recommended that the connection be idle (no in-progress queries) before the underlying *pgconn.PgConn
-// is used and the connection must be returned to the same state before any *pgx.Conn methods are again used.
+// is used and the connection must be returned to the same state before any *dbx.Conn methods are again used.
 func (c *Conn) PgConn() *pgconn.PgConn { return c.pgConn }
 
 // TypeMap returns the connection info used for this connection.
@@ -1283,7 +1283,7 @@ func (c *Conn) sanitizeForSimpleQuery(sql string, args ...any) (string, error) {
 }
 
 // LoadType inspects the database for typeName and produces a [pgtype.Type] suitable for registration. typeName must be
-// the name of a type where the underlying type(s) is already understood by pgx. It is for derived types. In particular,
+// the name of a type where the underlying type(s) is already understood by dbx. It is for derived types. In particular,
 // typeName must be one of the following:
 //   - An array type name of a type that is already registered. e.g. "_foo" when "foo" is registered.
 //   - A composite type name where all field types are already registered.

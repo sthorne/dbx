@@ -4,14 +4,14 @@ import (
 	"context"
 	"testing"
 
-	pgx "github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgtype"
+	"github.com/sthorne/dbx/v5/pgxtest"
 )
 
 func TestLineTranscode(t *testing.T) {
 	ctr := defaultConnTestRunner
-	ctr.AfterConnect = func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	ctr.AfterConnect = func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		pgxtest.SkipCockroachDB(t, conn, "Server does not support type line")
 
 		if _, ok := conn.TypeMap().TypeForName("line"); !ok {

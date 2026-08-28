@@ -1,18 +1,18 @@
-package pgx_test
+package dbx_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCompositeCodecTranscodeWithLoadTypes(t *testing.T) {
 	skipCockroachDB(t, "Server does not support composite types (see https://github.com/cockroachdb/cockroach/issues/27792)")
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		_, err := conn.Exec(ctx, `
 drop type if exists dtype_test;
 drop domain if exists anotheruint64;
@@ -44,7 +44,7 @@ create type dtype_test as (
 func TestLoadTypesDoesNotOverwriteBuiltinCodecsForGeometricFields(t *testing.T) {
 	skipCockroachDB(t, "Server does not support composite types (see https://github.com/cockroachdb/cockroach/issues/27792)")
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		_, err := conn.Exec(ctx, `
 drop type if exists dtype_geometric_test;
 
@@ -85,7 +85,7 @@ create type dtype_geometric_test as (
 func TestLoadTypesLoadsArrayDelimiter(t *testing.T) {
 	skipCockroachDB(t, "Server does not support box type")
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		types, err := conn.LoadTypes(ctx, []string{"_box"})
 		require.NoError(t, err)
 

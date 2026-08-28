@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,7 +28,7 @@ func BenchmarkMinimalPreparedSelectBaseline(b *testing.B) {
 	config, err := pgxpool.ParseConfig(os.Getenv("PGX_TEST_DATABASE"))
 	require.NoError(b, err)
 
-	config.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
+	config.AfterConnect = func(ctx context.Context, c *dbx.Conn) error {
 		_, err := c.Prepare(ctx, "ps1", "select $1::int8")
 		return err
 	}
@@ -58,7 +58,7 @@ func BenchmarkMinimalPreparedSelect(b *testing.B) {
 	config, err := pgxpool.ParseConfig(os.Getenv("PGX_TEST_DATABASE"))
 	require.NoError(b, err)
 
-	config.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
+	config.AfterConnect = func(ctx context.Context, c *dbx.Conn) error {
 		_, err := c.Prepare(ctx, "ps1", "select $1::int8")
 		return err
 	}

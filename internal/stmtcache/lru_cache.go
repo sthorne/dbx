@@ -1,7 +1,7 @@
 package stmtcache
 
 import (
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgconn"
 )
 
 // lruNode is a typed doubly-linked list node with freelist support.

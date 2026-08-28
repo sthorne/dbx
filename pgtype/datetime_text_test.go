@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/internal/pgdatetime"
+	"github.com/sthorne/dbx/v5/internal/pgdatetime"
 )
 
 func TestParseTextDateTime(t *testing.T) {

@@ -1,9 +1,9 @@
-package pgx
+package dbx
 
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgconn"
 )
 
 // QueryTracer traces Query, QueryRow, and Exec.

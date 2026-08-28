@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgconn"
 )
 
 // delayProxy is a that introduces a configurable delay on reads from the database connection.

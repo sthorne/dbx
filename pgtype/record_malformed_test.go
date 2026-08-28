@@ -3,7 +3,7 @@ package pgtype_test
 import (
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/sthorne/dbx/v5/pgtype"
 )
 
 // int4Field builds the binary wire encoding of one non-NULL int4 record field.

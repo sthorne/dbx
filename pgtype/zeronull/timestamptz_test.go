@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype/zeronull"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5/pgtype/zeronull"
+	"github.com/sthorne/dbx/v5/pgxtest"
 )
 
 func isExpectedEqTimestamptz(a any) func(any) bool {

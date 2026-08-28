@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,11 +38,11 @@ func (tt *testTracer) TraceRelease(pool *pgxpool.Pool, data pgxpool.TraceRelease
 	}
 }
 
-func (tt *testTracer) TraceQueryStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+func (tt *testTracer) TraceQueryStart(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryStartData) context.Context {
 	return ctx
 }
 
-func (tt *testTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
+func (tt *testTracer) TraceQueryEnd(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryEndData) {
 }
 
 func TestTraceAcquire(t *testing.T) {

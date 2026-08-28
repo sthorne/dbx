@@ -1,4 +1,4 @@
-package pgx_test
+package dbx_test
 
 import (
 	"context"
@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/internal/faultyconn"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgproto3"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/internal/faultyconn"
+	"github.com/sthorne/dbx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgproto3"
+	"github.com/sthorne/dbx/v5/pgxtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,7 +25,7 @@ func TestConnSendBatch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		pgxtest.SkipCockroachDB(t, conn, "Server serial type is incompatible with test")
 
 		sql := `create temporary table ledger(
@@ -35,7 +35,7 @@ func TestConnSendBatch(t *testing.T) {
 	);`
 		mustExec(t, conn, sql)
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue("insert into ledger(description, amount) values($1, $2)", "q1", 1)
 		batch.Queue("insert into ledger(description, amount) values($1, $2)", "q2", 2)
 		batch.Queue("insert into ledger(description, amount) values($1, $2)", "q3", 3)
@@ -118,7 +118,7 @@ func TestConnSendBatch(t *testing.T) {
 
 		rowCount = 0
 		rows, _ = br.Query()
-		_, err = pgx.ForEachRow(rows, []any{&id, &description, &amount}, func() error {
+		_, err = dbx.ForEachRow(rows, []any{&id, &description, &amount}, func() error {
 			if id != selectFromLedgerExpectedRows[rowCount].id {
 				t.Errorf("id => %v, want %v", id, selectFromLedgerExpectedRows[rowCount].id)
 			}
@@ -138,8 +138,8 @@ func TestConnSendBatch(t *testing.T) {
 		}
 
 		err = br.QueryRow().Scan(&id, &description, &amount)
-		if !errors.Is(err, pgx.ErrNoRows) {
-			t.Errorf("expected pgx.ErrNoRows but got: %v", err)
+		if !errors.Is(err, dbx.ErrNoRows) {
+			t.Errorf("expected dbx.ErrNoRows but got: %v", err)
 		}
 
 		err = br.QueryRow().Scan(&amount)
@@ -164,8 +164,8 @@ func TestConnSendBatchEmptyQuery(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
-		batch := &pgx.Batch{}
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
+		batch := &dbx.Batch{}
 		batch.Queue("-- comment-only query")
 		br := conn.SendBatch(ctx, batch)
 
@@ -185,7 +185,7 @@ func TestConnSendBatchCursorFetch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		pgxtest.SkipCockroachDB(t, conn, "Server does not support cursors in implicit transactions")
 
 		tx, err := conn.Begin(ctx)
@@ -194,7 +194,7 @@ func TestConnSendBatchCursorFetch(t *testing.T) {
 
 		// The FETCH is prepared before the DECLARE has executed, so the cursor does not exist and the server
 		// describes the FETCH result as NoData. The actual fields are only known at execution time.
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue(`declare test_cursor cursor for select n, n::text as str from generate_series(1, 3) n`)
 		batch.Queue(`fetch all in test_cursor`)
 
@@ -235,7 +235,7 @@ func TestConnSendBatchQueuedQuery(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		pgxtest.SkipCockroachDB(t, conn, "Server serial type is incompatible with test")
 
 		sql := `create temporary table ledger(
@@ -245,7 +245,7 @@ func TestConnSendBatchQueuedQuery(t *testing.T) {
 	);`
 		mustExec(t, conn, sql)
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 
 		batch.Queue("insert into ledger(description, amount) values($1, $2)", "q1", 1).Exec(func(ct pgconn.CommandTag) error {
 			assert.EqualValues(t, 1, ct.RowsAffected())
@@ -272,12 +272,12 @@ func TestConnSendBatchQueuedQuery(t *testing.T) {
 			{3, "q3", 3},
 		}
 
-		batch.Queue("select id, description, amount from ledger order by id").Query(func(rows pgx.Rows) error {
+		batch.Queue("select id, description, amount from ledger order by id").Query(func(rows dbx.Rows) error {
 			rowCount := 0
 			var id int32
 			var description string
 			var amount int32
-			_, err := pgx.ForEachRow(rows, []any{&id, &description, &amount}, func() error {
+			_, err := dbx.ForEachRow(rows, []any{&id, &description, &amount}, func() error {
 				assert.Equal(t, selectFromLedgerExpectedRows[rowCount].id, id)
 				assert.Equal(t, selectFromLedgerExpectedRows[rowCount].description, description)
 				assert.Equal(t, selectFromLedgerExpectedRows[rowCount].amount, amount)
@@ -289,12 +289,12 @@ func TestConnSendBatchQueuedQuery(t *testing.T) {
 			return nil
 		})
 
-		batch.Queue("select id, description, amount from ledger order by id").Query(func(rows pgx.Rows) error {
+		batch.Queue("select id, description, amount from ledger order by id").Query(func(rows dbx.Rows) error {
 			rowCount := 0
 			var id int32
 			var description string
 			var amount int32
-			_, err := pgx.ForEachRow(rows, []any{&id, &description, &amount}, func() error {
+			_, err := dbx.ForEachRow(rows, []any{&id, &description, &amount}, func() error {
 				assert.Equal(t, selectFromLedgerExpectedRows[rowCount].id, id)
 				assert.Equal(t, selectFromLedgerExpectedRows[rowCount].description, description)
 				assert.Equal(t, selectFromLedgerExpectedRows[rowCount].amount, amount)
@@ -306,13 +306,13 @@ func TestConnSendBatchQueuedQuery(t *testing.T) {
 			return nil
 		})
 
-		batch.Queue("select * from ledger where false").QueryRow(func(row pgx.Row) error {
+		batch.Queue("select * from ledger where false").QueryRow(func(row dbx.Row) error {
 			err := row.Scan(nil, nil, nil)
-			assert.ErrorIs(t, err, pgx.ErrNoRows)
+			assert.ErrorIs(t, err, dbx.ErrNoRows)
 			return nil
 		})
 
-		batch.Queue("select sum(amount) from ledger").QueryRow(func(row pgx.Row) error {
+		batch.Queue("select sum(amount) from ledger").QueryRow(func(row dbx.Row) error {
 			var sumAmount int32
 			err := row.Scan(&sumAmount)
 			assert.NoError(t, err)
@@ -331,7 +331,7 @@ func TestConnSendBatchMany(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		sql := `create temporary table ledger(
 	  id serial primary key,
 	  description varchar not null,
@@ -339,7 +339,7 @@ func TestConnSendBatchMany(t *testing.T) {
 	);`
 		mustExec(t, conn, sql)
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 
 		numInserts := 1000
 
@@ -373,8 +373,8 @@ func TestConnSendBatchReadResultsWhenNothingQueued(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
-		batch := &pgx.Batch{}
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
+		batch := &dbx.Batch{}
 		br := conn.SendBatch(ctx, batch)
 		commandTag, err := br.Exec()
 		require.Equal(t, "", commandTag.String())
@@ -390,8 +390,8 @@ func TestConnSendBatchReadMoreResultsThanQueriesSent(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
-		batch := &pgx.Batch{}
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
+		batch := &dbx.Batch{}
 		batch.Queue("select 1")
 		br := conn.SendBatch(ctx, batch)
 		commandTag, err := br.Exec()
@@ -408,24 +408,24 @@ func TestConnSendBatchReadMoreResultsThanQueriesSent(t *testing.T) {
 func TestConnSendBatchWithPreparedStatement(t *testing.T) {
 	t.Parallel()
 
-	modes := []pgx.QueryExecMode{
-		pgx.QueryExecModeCacheStatement,
-		pgx.QueryExecModeCacheDescribe,
-		pgx.QueryExecModeDescribeExec,
-		pgx.QueryExecModeExec,
+	modes := []dbx.QueryExecMode{
+		dbx.QueryExecModeCacheStatement,
+		dbx.QueryExecModeCacheDescribe,
+		dbx.QueryExecModeDescribeExec,
+		dbx.QueryExecModeExec,
 		// Don't test simple mode with prepared statements.
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, modes, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, modes, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		pgxtest.SkipCockroachDB(t, conn, "Server issues incorrect ParameterDescription (https://github.com/cockroachdb/cockroach/issues/60907)")
 		_, err := conn.Prepare(ctx, "ps1", "select n from generate_series(0,$1::int) n")
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 
 		queryCount := 3
 		for range queryCount {
@@ -468,8 +468,8 @@ func TestConnSendBatchWithQueryRewriter(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
-		batch := &pgx.Batch{}
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
+		batch := &dbx.Batch{}
 		batch.Queue("something to be replaced", &testQueryRewriter{sql: "select $1::int", args: []any{1}})
 		batch.Queue("something else to be replaced", &testQueryRewriter{sql: "select $1::text", args: []any{"hello"}})
 		batch.Queue("more to be replaced", &testQueryRewriter{sql: "select $1::int", args: []any{3}})
@@ -502,10 +502,10 @@ func TestConnSendBatchWithPreparedStatementAndStatementCacheDisabled(t *testing.
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	config, err := pgx.ParseConfig(os.Getenv("PGX_TEST_DATABASE"))
+	config, err := dbx.ParseConfig(os.Getenv("PGX_TEST_DATABASE"))
 	require.NoError(t, err)
 
-	config.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
+	config.DefaultQueryExecMode = dbx.QueryExecModeDescribeExec
 	config.StatementCacheCapacity = 0
 	config.DescriptionCacheCapacity = 0
 
@@ -519,7 +519,7 @@ func TestConnSendBatchWithPreparedStatementAndStatementCacheDisabled(t *testing.
 		t.Fatal(err)
 	}
 
-	batch := &pgx.Batch{}
+	batch := &dbx.Batch{}
 
 	queryCount := 3
 	for range queryCount {
@@ -563,8 +563,8 @@ func TestConnSendBatchCloseRowsPartiallyRead(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
-		batch := &pgx.Batch{}
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
+		batch := &dbx.Batch{}
 		batch.Queue("select n from generate_series(0,5) n")
 		batch.Queue("select n from generate_series(0,5) n")
 
@@ -623,8 +623,8 @@ func TestConnSendBatchQueryError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
-		batch := &pgx.Batch{}
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
+		batch := &dbx.Batch{}
 		batch.Queue("select n from generate_series(0,5) n where 100/(5-n) > 0")
 		batch.Queue("select n from generate_series(0,5) n")
 
@@ -662,8 +662,8 @@ func TestConnSendBatchQuerySyntaxError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
-		batch := &pgx.Batch{}
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
+		batch := &dbx.Batch{}
 		batch.Queue("select 1 1")
 
 		br := conn.SendBatch(ctx, batch)
@@ -689,17 +689,17 @@ func TestConnSendBatchErrorReturnsErrPreprocessingBatch(t *testing.T) {
 	defer cancel()
 
 	// Only test exec modes that go through sendBatchExtendedWithDescription which wraps errors with ErrPreprocessingBatch.
-	modes := []pgx.QueryExecMode{
-		pgx.QueryExecModeCacheStatement,
-		pgx.QueryExecModeCacheDescribe,
-		pgx.QueryExecModeDescribeExec,
+	modes := []dbx.QueryExecMode{
+		dbx.QueryExecModeCacheStatement,
+		dbx.QueryExecModeCacheDescribe,
+		dbx.QueryExecModeDescribeExec,
 	}
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, modes, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
-		var preprocessingErr pgx.ErrPreprocessingBatch
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, modes, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
+		var preprocessingErr dbx.ErrPreprocessingBatch
 
 		// Test prepare step failure: syntax error in a non-first statement.
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue("select 1")
 		batch.Queue("select 1 1") // syntax error triggers prepare failure
 
@@ -711,7 +711,7 @@ func TestConnSendBatchErrorReturnsErrPreprocessingBatch(t *testing.T) {
 		assert.Contains(t, preprocessingErr.Error(), "error preprocessing batch (prepare)")
 
 		// Test build step failure: wrong number of arguments in a statement.
-		batch = &pgx.Batch{}
+		batch = &dbx.Batch{}
 		batch.Queue("select 1")
 		batch.Queue("select $1::int", 1, 2) // mismatched argument count triggers build failure
 
@@ -730,7 +730,7 @@ func TestConnSendBatchQueryRowInsert(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		sql := `create temporary table ledger(
 	  id serial primary key,
 	  description varchar not null,
@@ -738,7 +738,7 @@ func TestConnSendBatchQueryRowInsert(t *testing.T) {
 	);`
 		mustExec(t, conn, sql)
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue("select 1")
 		batch.Queue("insert into ledger(description, amount) values($1, $2),($1, $2)", "q1", 1)
 
@@ -768,7 +768,7 @@ func TestConnSendBatchQueryPartialReadInsert(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		sql := `create temporary table ledger(
 	  id serial primary key,
 	  description varchar not null,
@@ -776,7 +776,7 @@ func TestConnSendBatchQueryPartialReadInsert(t *testing.T) {
 	);`
 		mustExec(t, conn, sql)
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue("select 1 union all select 2 union all select 3")
 		batch.Queue("insert into ledger(description, amount) values($1, $2),($1, $2)", "q1", 1)
 
@@ -806,7 +806,7 @@ func TestTxSendBatch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		sql := `create temporary table ledger1(
 	  id serial primary key,
 	  description varchar not null
@@ -820,7 +820,7 @@ func TestTxSendBatch(t *testing.T) {
 		mustExec(t, conn, sql)
 
 		tx, _ := conn.Begin(ctx)
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue("insert into ledger1(description) values($1) returning id", "q1")
 
 		br := tx.SendBatch(context.Background(), batch)
@@ -832,7 +832,7 @@ func TestTxSendBatch(t *testing.T) {
 		}
 		br.Close()
 
-		batch = &pgx.Batch{}
+		batch = &dbx.Batch{}
 		batch.Queue("insert into ledger2(id,amount) values($1, $2)", id, 2)
 		batch.Queue("select amount from ledger2 where id = $1", id)
 
@@ -874,7 +874,7 @@ func TestTxSendBatchRollback(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		sql := `create temporary table ledger1(
 	  id serial primary key,
 	  description varchar not null
@@ -882,7 +882,7 @@ func TestTxSendBatchRollback(t *testing.T) {
 		mustExec(t, conn, sql)
 
 		tx, _ := conn.Begin(ctx)
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue("insert into ledger1(description) values($1) returning id", "q1")
 
 		br := tx.SendBatch(ctx, batch)
@@ -911,8 +911,8 @@ func TestSendBatchErrorWhileReadingResultsWithoutCallback(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
-		batch := &pgx.Batch{}
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
+		batch := &dbx.Batch{}
 		batch.Queue("select 4 / $1::int", 0)
 
 		batchResult := conn.SendBatch(ctx, batch)
@@ -935,8 +935,8 @@ func TestSendBatchErrorWhileReadingResultsWithExecWhereSomeRowsAreReturned(t *te
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
-		batch := &pgx.Batch{}
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
+		batch := &dbx.Batch{}
 		batch.Queue("select 4 / n from generate_series(-2, 2) n")
 
 		batchResult := conn.SendBatch(ctx, batch)
@@ -959,7 +959,7 @@ func TestConnBeginBatchDeferredError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		pgxtest.SkipCockroachDB(t, conn, "Server does not support deferred constraint (https://github.com/cockroachdb/cockroach/issues/31632)")
 
 		mustExec(t, conn, `create temporary table t (
@@ -970,7 +970,7 @@ func TestConnBeginBatchDeferredError(t *testing.T) {
 
 	insert into t (id, n) values ('a', 1), ('b', 2), ('c', 3);`)
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 
 		batch.Queue(`update t set n=n+1 where id='b' returning *`)
 
@@ -1006,7 +1006,7 @@ func TestConnSendBatchNoStatementCache(t *testing.T) {
 	defer cancel()
 
 	config := mustParseConfig(t, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
+	config.DefaultQueryExecMode = dbx.QueryExecModeDescribeExec
 	config.StatementCacheCapacity = 0
 	config.DescriptionCacheCapacity = 0
 
@@ -1021,7 +1021,7 @@ func TestConnSendBatchPrepareStatementCache(t *testing.T) {
 	defer cancel()
 
 	config := mustParseConfig(t, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeCacheStatement
+	config.DefaultQueryExecMode = dbx.QueryExecModeCacheStatement
 	config.StatementCacheCapacity = 32
 
 	conn := mustConnect(t, config)
@@ -1035,7 +1035,7 @@ func TestConnSendBatchDescribeStatementCache(t *testing.T) {
 	defer cancel()
 
 	config := mustParseConfig(t, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeCacheDescribe
+	config.DefaultQueryExecMode = dbx.QueryExecModeCacheDescribe
 	config.DescriptionCacheCapacity = 32
 
 	conn := mustConnect(t, config)
@@ -1044,8 +1044,8 @@ func TestConnSendBatchDescribeStatementCache(t *testing.T) {
 	testConnSendBatch(t, ctx, conn, 3)
 }
 
-func testConnSendBatch(t *testing.T, ctx context.Context, conn *pgx.Conn, queryCount int) {
-	batch := &pgx.Batch{}
+func testConnSendBatch(t *testing.T, ctx context.Context, conn *dbx.Conn, queryCount int) {
+	batch := &dbx.Batch{}
 	for range queryCount {
 		batch.Queue("select n from generate_series(0,5) n")
 	}
@@ -1077,12 +1077,12 @@ func TestSendBatchSimpleProtocol(t *testing.T) {
 	defer cancel()
 
 	config := mustParseConfig(t, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+	config.DefaultQueryExecMode = dbx.QueryExecModeSimpleProtocol
 
 	conn := mustConnect(t, config)
 	defer closeConn(t, conn)
 
-	var batch pgx.Batch
+	var batch dbx.Batch
 	batch.Queue("SELECT 1::int")
 	batch.Queue("SELECT 2::int; SELECT $1::int", 3)
 	results := conn.SendBatch(ctx, &batch)
@@ -1118,12 +1118,12 @@ func TestConnSendBatchErrorDoesNotLeaveOrphanedPreparedStatement(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		pgxtest.SkipCockroachDB(t, conn, "Server serial type is incompatible with test")
 
 		mustExec(t, conn, `create temporary table foo(col1 text primary key);`)
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue("select col1 from foo")
 		batch.Queue("select col1 from baz")
 		err := conn.SendBatch(ctx, batch).Close()
@@ -1133,7 +1133,7 @@ func TestConnSendBatchErrorDoesNotLeaveOrphanedPreparedStatement(t *testing.T) {
 
 		// Since table baz now exists, the batch should succeed.
 
-		batch = &pgx.Batch{}
+		batch = &dbx.Batch{}
 		batch.Queue("select col1 from foo")
 		batch.Queue("select col1 from baz")
 		err = conn.SendBatch(ctx, batch).Close()
@@ -1147,10 +1147,10 @@ func TestSendBatchStatementTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		pgxtest.SkipCockroachDB(t, conn, "CockroachDB does not recover connection after batch statement timeout")
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue("SET statement_timeout='1ms'")
 		batch.Queue("SELECT pg_sleep(10)")
 
@@ -1185,8 +1185,8 @@ func TestSendBatchHandlesTimeoutBetweenParseAndDescribe(t *testing.T) {
 
 	var faultyConn *faultyconn.Conn
 	faultyConnTestRunner := pgxtest.DefaultConnTestRunner()
-	faultyConnTestRunner.CreateConfig = func(ctx context.Context, t testing.TB) *pgx.ConnConfig {
-		config, err := pgx.ParseConfig(os.Getenv("PGX_TEST_DATABASE"))
+	faultyConnTestRunner.CreateConfig = func(ctx context.Context, t testing.TB) *dbx.ConnConfig {
+		config, err := dbx.ParseConfig(os.Getenv("PGX_TEST_DATABASE"))
 		require.NoError(t, err)
 		config.AfterNetConnect = func(ctx context.Context, config *pgconn.Config, conn net.Conn) (net.Conn, error) {
 			faultyConn = faultyconn.New(conn)
@@ -1196,20 +1196,20 @@ func TestSendBatchHandlesTimeoutBetweenParseAndDescribe(t *testing.T) {
 	}
 
 	// Only need to test modes that use Parse/Describe.
-	extendedQueryModes := []pgx.QueryExecMode{
-		pgx.QueryExecModeCacheStatement,
-		pgx.QueryExecModeCacheDescribe,
-		pgx.QueryExecModeDescribeExec,
-		pgx.QueryExecModeExec,
+	extendedQueryModes := []dbx.QueryExecMode{
+		dbx.QueryExecModeCacheStatement,
+		dbx.QueryExecModeCacheDescribe,
+		dbx.QueryExecModeDescribeExec,
+		dbx.QueryExecModeExec,
 	}
 
-	pgxtest.RunWithQueryExecModes(ctx, t, faultyConnTestRunner, extendedQueryModes, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, faultyConnTestRunner, extendedQueryModes, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		pgxtest.SkipCockroachDB(t, conn, "Induced error does not occur on CockroachDB")
 
 		_, err := conn.Exec(ctx, "set statement_timeout = '100ms'")
 		require.NoError(t, err)
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue("select 1")
 		batch.Queue("select 2")
 
@@ -1236,7 +1236,7 @@ func TestSendBatchHandlesTimeoutBetweenParseAndDescribe(t *testing.T) {
 		_, err = conn.Exec(ctx, "set statement_timeout = default")
 		require.NoError(t, err)
 
-		batch = &pgx.Batch{}
+		batch = &dbx.Batch{}
 		batch.Queue("select 1")
 		batch.Queue("select 2")
 		err = conn.SendBatch(ctx, batch).Close()
@@ -1248,7 +1248,7 @@ func TestBatchNetworkUsage(t *testing.T) {
 	t.Parallel()
 
 	config := mustParseConfig(t, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeCacheStatement
+	config.DefaultQueryExecMode = dbx.QueryExecModeCacheStatement
 	var counterConn *byteCounterConn
 	config.AfterNetConnect = func(ctx context.Context, config *pgconn.Config, conn net.Conn) (net.Conn, error) {
 		counterConn = &byteCounterConn{conn: conn}
@@ -1263,7 +1263,7 @@ func TestBatchNetworkUsage(t *testing.T) {
 	counterConn.bytesWritten = 0
 	counterConn.bytesRead = 0
 
-	batch := &pgx.Batch{}
+	batch := &dbx.Batch{}
 
 	for range 10 {
 		batch.Queue(
@@ -1285,14 +1285,14 @@ func ExampleConn_SendBatch() {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	conn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	conn, err := dbx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
 	if err != nil {
 		fmt.Printf("Unable to establish connection: %v", err)
 		return
 	}
 
-	batch := &pgx.Batch{}
-	batch.Queue("select 1 + 1").QueryRow(func(row pgx.Row) error {
+	batch := &dbx.Batch{}
+	batch.Queue("select 1 + 1").QueryRow(func(row dbx.Row) error {
 		var n int32
 		err := row.Scan(&n)
 		if err != nil {
@@ -1304,7 +1304,7 @@ func ExampleConn_SendBatch() {
 		return err
 	})
 
-	batch.Queue("select 1 + 2").QueryRow(func(row pgx.Row) error {
+	batch.Queue("select 1 + 2").QueryRow(func(row dbx.Row) error {
 		var n int32
 		err := row.Scan(&n)
 		if err != nil {
@@ -1316,7 +1316,7 @@ func ExampleConn_SendBatch() {
 		return err
 	})
 
-	batch.Queue("select 2 + 3").QueryRow(func(row pgx.Row) error {
+	batch.Queue("select 2 + 3").QueryRow(func(row dbx.Row) error {
 		var n int32
 		err := row.Scan(&n)
 		if err != nil {
@@ -1350,8 +1350,8 @@ func TestSendBatchPreservesResultFormats(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
-		batch := &pgx.Batch{}
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
+		batch := &dbx.Batch{}
 		batch.Queue("SELECT 1::int4")
 		batch.Queue("SELECT 'hello'::text")
 

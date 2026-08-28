@@ -12,7 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/jackc/pgx/v5/internal/pgdatetime"
+	"github.com/sthorne/dbx/v5/internal/pgdatetime"
 )
 
 // Part is either a string or an int. A string is raw SQL. An int is a

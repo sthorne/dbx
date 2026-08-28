@@ -1,4 +1,4 @@
-// Package pgxpool is a concurrency-safe connection pool for pgx.
+// Package pgxpool is a concurrency-safe connection pool for dbx.
 /*
 pgxpool implements a nearly identical interface to pgx connections.
 
@@ -15,7 +15,7 @@ specified here. In addition, a config struct can be created by [ParseConfig].
     if err != nil {
         // ...
     }
-    config.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+    config.AfterConnect = func(ctx context.Context, conn *dbx.Conn) error {
         // do something with every new connection
     }
 

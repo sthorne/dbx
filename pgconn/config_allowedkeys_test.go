@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgconn"
 )
 
 func TestParseConfigConnStringAllowedKeys(t *testing.T) {

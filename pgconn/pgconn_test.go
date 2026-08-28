@@ -20,13 +20,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/internal/pgio"
-	"github.com/jackc/pgx/v5/internal/pgmock"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgconn/ctxwatch"
-	"github.com/jackc/pgx/v5/pgproto3"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/internal/pgio"
+	"github.com/sthorne/dbx/v5/internal/pgmock"
+	"github.com/sthorne/dbx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgconn/ctxwatch"
+	"github.com/sthorne/dbx/v5/pgproto3"
+	"github.com/sthorne/dbx/v5/pgtype"
 )
 
 const (
@@ -1878,7 +1878,7 @@ func TestConnExecStatementNetworkUsage(t *testing.T) {
 		psd.Name,
 		[][]byte{[]byte("1")},
 		nil,
-		[]int16{pgx.BinaryFormatCode, pgx.TextFormatCode, pgx.TextFormatCode, pgx.TextFormatCode, pgx.BinaryFormatCode, pgx.BinaryFormatCode, pgx.BinaryFormatCode, pgx.BinaryFormatCode, pgx.BinaryFormatCode},
+		[]int16{dbx.BinaryFormatCode, dbx.TextFormatCode, dbx.TextFormatCode, dbx.TextFormatCode, dbx.BinaryFormatCode, dbx.BinaryFormatCode, dbx.BinaryFormatCode, dbx.BinaryFormatCode, dbx.BinaryFormatCode},
 	).Read()
 	require.NoError(t, result.Err)
 	withDescribeBytesWritten := counterConn.bytesWritten
@@ -1892,7 +1892,7 @@ func TestConnExecStatementNetworkUsage(t *testing.T) {
 		psd,
 		[][]byte{[]byte("1")},
 		nil,
-		[]int16{pgx.BinaryFormatCode, pgx.TextFormatCode, pgx.TextFormatCode, pgx.TextFormatCode, pgx.BinaryFormatCode, pgx.BinaryFormatCode, pgx.BinaryFormatCode, pgx.BinaryFormatCode, pgx.BinaryFormatCode},
+		[]int16{dbx.BinaryFormatCode, dbx.TextFormatCode, dbx.TextFormatCode, dbx.TextFormatCode, dbx.BinaryFormatCode, dbx.BinaryFormatCode, dbx.BinaryFormatCode, dbx.BinaryFormatCode, dbx.BinaryFormatCode},
 	).Read()
 	require.NoError(t, result.Err)
 	noDescribeBytesWritten := counterConn.bytesWritten
@@ -1927,8 +1927,8 @@ func TestConnExecBatch(t *testing.T) {
 	batch.ExecParams("select $1::text", [][]byte{[]byte("ExecParams 1")}, nil, nil, nil)
 	batch.ExecPrepared("ps1", [][]byte{[]byte("ExecPrepared 1")}, nil, nil)
 	batch.ExecStatement(sd, [][]byte{[]byte("ExecStatement 1"), []byte("42")}, nil, nil)
-	batch.ExecStatement(sd, [][]byte{[]byte("ExecStatement 2"), []byte("43")}, nil, []int16{pgx.BinaryFormatCode})
-	batch.ExecStatement(sd, [][]byte{[]byte("ExecStatement 3"), []byte("44")}, nil, []int16{pgx.TextFormatCode, pgx.BinaryFormatCode})
+	batch.ExecStatement(sd, [][]byte{[]byte("ExecStatement 2"), []byte("43")}, nil, []int16{dbx.BinaryFormatCode})
+	batch.ExecStatement(sd, [][]byte{[]byte("ExecStatement 3"), []byte("44")}, nil, []int16{dbx.TextFormatCode, dbx.BinaryFormatCode})
 	batch.ExecParams("select $1::text", [][]byte{[]byte("ExecParams 2")}, nil, nil, nil)
 	results, err := pgConn.ExecBatch(ctx, batch).ReadAll()
 	require.NoError(t, err)
@@ -2665,14 +2665,14 @@ func TestConnCopyFromBinary(t *testing.T) {
 
 		// Length of element for column `a int4`
 		buf = pgio.AppendInt32(buf, 4)
-		buf, err = pgtype.NewMap().Encode(pgtype.Int4OID, pgx.BinaryFormatCode, a, buf)
+		buf, err = pgtype.NewMap().Encode(pgtype.Int4OID, dbx.BinaryFormatCode, a, buf)
 		require.NoError(t, err)
 
 		b := "foo " + strconv.Itoa(a) + " bar"
 		lenB := int32(len([]byte(b)))
 		// Length of element for column `b varchar`
 		buf = pgio.AppendInt32(buf, lenB)
-		buf, err = pgtype.NewMap().Encode(pgtype.VarcharOID, pgx.BinaryFormatCode, b, buf)
+		buf, err = pgtype.NewMap().Encode(pgtype.VarcharOID, dbx.BinaryFormatCode, b, buf)
 		require.NoError(t, err)
 
 		inputRows = append(inputRows, [][]byte{[]byte(strconv.Itoa(a)), []byte(b)})

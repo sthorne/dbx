@@ -1,4 +1,4 @@
-package pgx_test
+package dbx_test
 
 import (
 	"context"
@@ -7,19 +7,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgxtest"
 )
 
 func TestLargeObjects(t *testing.T) {
 	// We use a very short limit to test chunking logic.
-	pgx.SetMaxLargeObjectMessageLength(t, 2)
+	dbx.SetMaxLargeObjectMessageLength(t, 2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	conn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	conn, err := dbx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,19 +36,19 @@ func TestLargeObjects(t *testing.T) {
 
 func TestLargeObjectsSimpleProtocol(t *testing.T) {
 	// We use a very short limit to test chunking logic.
-	pgx.SetMaxLargeObjectMessageLength(t, 2)
+	dbx.SetMaxLargeObjectMessageLength(t, 2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	config, err := pgx.ParseConfig(os.Getenv("PGX_TEST_DATABASE"))
+	config, err := dbx.ParseConfig(os.Getenv("PGX_TEST_DATABASE"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	config.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+	config.DefaultQueryExecMode = dbx.QueryExecModeSimpleProtocol
 
-	conn, err := pgx.ConnectConfig(ctx, config)
+	conn, err := dbx.ConnectConfig(ctx, config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestLargeObjectsSimpleProtocol(t *testing.T) {
 	testLargeObjects(t, ctx, tx)
 }
 
-func testLargeObjects(t *testing.T, ctx context.Context, tx pgx.Tx) {
+func testLargeObjects(t *testing.T, ctx context.Context, tx dbx.Tx) {
 	lo := tx.LargeObjects()
 
 	id, err := lo.Create(ctx, 0)
@@ -71,7 +71,7 @@ func testLargeObjects(t *testing.T, ctx context.Context, tx pgx.Tx) {
 		t.Fatal(err)
 	}
 
-	obj, err := lo.Open(ctx, id, pgx.LargeObjectModeRead|pgx.LargeObjectModeWrite)
+	obj, err := lo.Open(ctx, id, dbx.LargeObjectModeRead|dbx.LargeObjectModeWrite)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func testLargeObjects(t *testing.T, ctx context.Context, tx pgx.Tx) {
 		t.Fatal(err)
 	}
 
-	_, err = lo.Open(ctx, id, pgx.LargeObjectModeRead)
+	_, err = lo.Open(ctx, id, dbx.LargeObjectModeRead)
 	if e, ok := err.(*pgconn.PgError); !ok || e.Code != "42704" {
 		t.Errorf("Expected undefined_object error (42704), got %#v", err)
 	}
@@ -163,12 +163,12 @@ func testLargeObjects(t *testing.T, ctx context.Context, tx pgx.Tx) {
 
 func TestLargeObjectsMultipleTransactions(t *testing.T) {
 	// We use a very short limit to test chunking logic.
-	pgx.SetMaxLargeObjectMessageLength(t, 2)
+	dbx.SetMaxLargeObjectMessageLength(t, 2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	conn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	conn, err := dbx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestLargeObjectsMultipleTransactions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	obj, err := lo.Open(ctx, id, pgx.LargeObjectModeWrite)
+	obj, err := lo.Open(ctx, id, dbx.LargeObjectModeWrite)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestLargeObjectsMultipleTransactions(t *testing.T) {
 	lo2 := tx2.LargeObjects()
 
 	// Reopen the large object in the new transaction
-	obj2, err := lo2.Open(ctx, id, pgx.LargeObjectModeRead|pgx.LargeObjectModeWrite)
+	obj2, err := lo2.Open(ctx, id, dbx.LargeObjectModeRead|dbx.LargeObjectModeWrite)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +299,7 @@ func TestLargeObjectsMultipleTransactions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = lo2.Open(ctx, id, pgx.LargeObjectModeRead)
+	_, err = lo2.Open(ctx, id, dbx.LargeObjectModeRead)
 	if e, ok := err.(*pgconn.PgError); !ok || e.Code != "42704" {
 		t.Errorf("Expected undefined_object error (42704), got %#v", err)
 	}

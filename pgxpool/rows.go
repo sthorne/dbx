@@ -1,9 +1,9 @@
 package pgxpool
 
 import (
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgtype"
 )
 
 type errRows struct {
@@ -18,7 +18,7 @@ func (errRows) Next() bool                                   { return false }
 func (e errRows) Scan(dest ...any) error                     { return e.err }
 func (e errRows) Values() ([]any, error)                     { return nil, e.err }
 func (e errRows) RawValues() [][]byte                        { return nil }
-func (e errRows) Conn() *pgx.Conn                            { return nil }
+func (e errRows) Conn() *dbx.Conn                            { return nil }
 func (e errRows) TypeMap() *pgtype.Map                       { return nil }
 
 type errRow struct {
@@ -28,7 +28,7 @@ type errRow struct {
 func (e errRow) Scan(dest ...any) error { return e.err }
 
 type poolRows struct {
-	r   pgx.Rows
+	r   dbx.Rows
 	c   *Conn
 	err error
 }
@@ -88,7 +88,7 @@ func (rows *poolRows) RawValues() [][]byte {
 	return rows.r.RawValues()
 }
 
-func (rows *poolRows) Conn() *pgx.Conn {
+func (rows *poolRows) Conn() *dbx.Conn {
 	return rows.r.Conn()
 }
 
@@ -97,7 +97,7 @@ func (rows *poolRows) TypeMap() *pgtype.Map {
 }
 
 type poolRow struct {
-	r   pgx.Row
+	r   dbx.Row
 	c   *Conn
 	err error
 }

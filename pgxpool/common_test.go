@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sthorne/dbx/v5/pgxpool"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +31,7 @@ func testExec(t *testing.T, ctx context.Context, db execer) {
 }
 
 type queryer interface {
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	Query(ctx context.Context, sql string, args ...any) (dbx.Rows, error)
 }
 
 func testQuery(t *testing.T, ctx context.Context, db queryer) {
@@ -53,7 +53,7 @@ func testQuery(t *testing.T, ctx context.Context, db queryer) {
 }
 
 type queryRower interface {
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	QueryRow(ctx context.Context, sql string, args ...any) dbx.Row
 }
 
 func testQueryRow(t *testing.T, ctx context.Context, db queryRower) {
@@ -65,11 +65,11 @@ func testQueryRow(t *testing.T, ctx context.Context, db queryRower) {
 }
 
 type sendBatcher interface {
-	SendBatch(context.Context, *pgx.Batch) pgx.BatchResults
+	SendBatch(context.Context, *dbx.Batch) dbx.BatchResults
 }
 
 func testSendBatch(t *testing.T, ctx context.Context, db sendBatcher) {
-	batch := &pgx.Batch{}
+	batch := &dbx.Batch{}
 	batch.Queue("select 1")
 	batch.Queue("select 2")
 
@@ -90,7 +90,7 @@ func testSendBatch(t *testing.T, ctx context.Context, db sendBatcher) {
 }
 
 type copyFromer interface {
-	CopyFrom(context.Context, pgx.Identifier, []string, pgx.CopyFromSource) (int64, error)
+	CopyFrom(context.Context, dbx.Identifier, []string, dbx.CopyFromSource) (int64, error)
 }
 
 func testCopyFrom(t *testing.T, ctx context.Context, db interface {
@@ -109,7 +109,7 @@ func testCopyFrom(t *testing.T, ctx context.Context, db interface {
 		{nil, nil, nil, nil, nil, nil, nil},
 	}
 
-	copyCount, err := db.CopyFrom(ctx, pgx.Identifier{"foo"}, []string{"a", "b", "c", "d", "e", "f", "g"}, pgx.CopyFromRows(inputRows))
+	copyCount, err := db.CopyFrom(ctx, dbx.Identifier{"foo"}, []string{"a", "b", "c", "d", "e", "f", "g"}, dbx.CopyFromRows(inputRows))
 	assert.NoError(t, err)
 	assert.EqualValues(t, len(inputRows), copyCount)
 
@@ -155,7 +155,7 @@ func assertConfigsEqual(t *testing.T, expected, actual *pgxpool.Config, testName
 	assertConnConfigsEqual(t, expected.ConnConfig, actual.ConnConfig, testName)
 }
 
-func assertConnConfigsEqual(t *testing.T, expected, actual *pgx.ConnConfig, testName string) {
+func assertConnConfigsEqual(t *testing.T, expected, actual *dbx.ConnConfig, testName string) {
 	if !assert.NotNil(t, expected) {
 		return
 	}

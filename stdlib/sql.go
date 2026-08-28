@@ -23,11 +23,11 @@
 //
 //	db := stdlib.OpenDBFromPool(pool)
 //
-// Or a pgx.ConnConfig can be used to set configuration not accessible via connection string. In this case the
-// pgx.ConnConfig must first be registered with the driver. This registration returns a connection string which is used
+// Or a dbx.ConnConfig can be used to set configuration not accessible via connection string. In this case the
+// dbx.ConnConfig must first be registered with the driver. This registration returns a connection string which is used
 // with sql.Open.
 //
-//	connConfig, _ := pgx.ParseConfig(os.Getenv("DATABASE_URL"))
+//	connConfig, _ := dbx.ParseConfig(os.Getenv("DATABASE_URL"))
 //	connConfig.Tracer = &tracelog.TraceLog{Logger: myLogger, LogLevel: tracelog.LogLevelInfo}
 //	connStr := stdlib.RegisterConnConfig(connConfig)
 //	db, _ := sql.Open("pgx", connStr)
@@ -36,7 +36,7 @@
 //
 //	db.QueryRow("select * from users where id=$1", userID)
 //
-// (*sql.Conn) Raw() can be used to get a *pgx.Conn from the standard database/sql.DB connection pool. This allows
+// (*sql.Conn) Raw() can be used to get a *dbx.Conn from the standard database/sql.DB connection pool. This allows
 // operations that use pgx specific functionality.
 //
 //	// Given db is a *sql.DB
@@ -46,13 +46,13 @@
 //	}
 //
 //	err = conn.Raw(func(driverConn any) error {
-//	  conn := driverConn.(*stdlib.Conn).Conn() // conn is a *pgx.Conn
+//	  conn := driverConn.(*stdlib.Conn).Conn() // conn is a *dbx.Conn
 //	  // Do pgx specific stuff with conn
 //	  conn.CopyFrom(...)
 //	  return nil
 //	})
 //	if err != nil {
-//	  // handle error that occurred while using *pgx.Conn
+//	  // handle error that occurred while using *dbx.Conn
 //	}
 //
 // # PostgreSQL Specific Data Types
@@ -81,20 +81,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgtype"
+	"github.com/sthorne/dbx/v5/pgxpool"
 )
 
 // Only intrinsic types should be binary format with database/sql.
-var databaseSQLResultFormats pgx.QueryResultFormatsByOID
+var databaseSQLResultFormats dbx.QueryResultFormatsByOID
 
 var pgxDriver *Driver
 
 func init() {
 	pgxDriver = &Driver{
-		configs: make(map[string]*pgx.ConnConfig),
+		configs: make(map[string]*dbx.ConnConfig),
 	}
 
 	// if pgx driver was already registered by different pgx major version then we
@@ -104,7 +104,7 @@ func init() {
 	}
 	sql.Register("pgx/v5", pgxDriver)
 
-	databaseSQLResultFormats = pgx.QueryResultFormatsByOID{
+	databaseSQLResultFormats = dbx.QueryResultFormatsByOID{
 		pgtype.BoolOID:        1,
 		pgtype.ByteaOID:       1,
 		pgtype.CIDOID:         1,
@@ -127,7 +127,7 @@ type OptionOpenDB func(*connector)
 // ShouldPingParams are passed to OptionShouldPing to decide whether to ping before reusing a connection.
 type ShouldPingParams struct {
 	// Conn is the underlying pgx connection.
-	Conn *pgx.Conn
+	Conn *dbx.Conn
 	// IdleDuration is how long it has been since ResetSession last ran.
 	IdleDuration time.Duration
 }
@@ -141,15 +141,15 @@ func OptionShouldPing(f func(context.Context, ShouldPingParams) bool) OptionOpen
 }
 
 // OptionBeforeConnect provides a callback for before connect. It is passed a shallow copy of the ConnConfig that will
-// be used to connect, so only its immediate members should be modified. Used only if db is opened with *pgx.ConnConfig.
-func OptionBeforeConnect(bc func(context.Context, *pgx.ConnConfig) error) OptionOpenDB {
+// be used to connect, so only its immediate members should be modified. Used only if db is opened with *dbx.ConnConfig.
+func OptionBeforeConnect(bc func(context.Context, *dbx.ConnConfig) error) OptionOpenDB {
 	return func(dc *connector) {
 		dc.BeforeConnect = bc
 	}
 }
 
-// OptionAfterConnect provides a callback for after connect. Used only if db is opened with *pgx.ConnConfig.
-func OptionAfterConnect(ac func(context.Context, *pgx.Conn) error) OptionOpenDB {
+// OptionAfterConnect provides a callback for after connect. Used only if db is opened with *dbx.ConnConfig.
+func OptionAfterConnect(ac func(context.Context, *dbx.Conn) error) OptionOpenDB {
 	return func(dc *connector) {
 		dc.AfterConnect = ac
 	}
@@ -158,7 +158,7 @@ func OptionAfterConnect(ac func(context.Context, *pgx.Conn) error) OptionOpenDB 
 // OptionResetSession provides a callback that can be used to add custom logic prior to executing a query on the
 // connection if the connection has been used before.
 // If ResetSessionFunc returns ErrBadConn error the connection will be discarded.
-func OptionResetSession(rs func(context.Context, *pgx.Conn) error) OptionOpenDB {
+func OptionResetSession(rs func(context.Context, *dbx.Conn) error) OptionOpenDB {
 	return func(dc *connector) {
 		dc.ResetSession = rs
 	}
@@ -168,7 +168,7 @@ func OptionResetSession(rs func(context.Context, *pgx.Conn) error) OptionOpenDB 
 // new host becomes primary each time. This is useful to distribute connections for multi-master databases like
 // CockroachDB. If you use this you likely should set https://golang.org/pkg/database/sql/#DB.SetConnMaxLifetime as well
 // to ensure that connections are periodically rebalanced across your nodes.
-func RandomizeHostOrderFunc(ctx context.Context, connConfig *pgx.ConnConfig) error {
+func RandomizeHostOrderFunc(ctx context.Context, connConfig *dbx.ConnConfig) error {
 	if len(connConfig.Fallbacks) == 0 {
 		return nil
 	}
@@ -192,12 +192,12 @@ func RandomizeHostOrderFunc(ctx context.Context, connConfig *pgx.ConnConfig) err
 	return nil
 }
 
-func GetConnector(config pgx.ConnConfig, opts ...OptionOpenDB) driver.Connector {
+func GetConnector(config dbx.ConnConfig, opts ...OptionOpenDB) driver.Connector {
 	c := connector{
 		ConnConfig:    config,
-		BeforeConnect: func(context.Context, *pgx.ConnConfig) error { return nil }, // noop before connect by default
-		AfterConnect:  func(context.Context, *pgx.Conn) error { return nil },       // noop after connect by default
-		ResetSession:  func(context.Context, *pgx.Conn) error { return nil },       // noop reset session by default
+		BeforeConnect: func(context.Context, *dbx.ConnConfig) error { return nil }, // noop before connect by default
+		AfterConnect:  func(context.Context, *dbx.Conn) error { return nil },       // noop after connect by default
+		ResetSession:  func(context.Context, *dbx.Conn) error { return nil },       // noop reset session by default
 		driver:        pgxDriver,
 	}
 
@@ -214,7 +214,7 @@ func GetConnector(config pgx.ConnConfig, opts ...OptionOpenDB) driver.Connector 
 func GetPoolConnector(pool *pgxpool.Pool, opts ...OptionOpenDB) driver.Connector {
 	c := connector{
 		pool:         pool,
-		ResetSession: func(context.Context, *pgx.Conn) error { return nil }, // noop reset session by default
+		ResetSession: func(context.Context, *dbx.Conn) error { return nil }, // noop reset session by default
 		driver:       pgxDriver,
 	}
 
@@ -225,7 +225,7 @@ func GetPoolConnector(pool *pgxpool.Pool, opts ...OptionOpenDB) driver.Connector
 	return c
 }
 
-func OpenDB(config pgx.ConnConfig, opts ...OptionOpenDB) *sql.DB {
+func OpenDB(config dbx.ConnConfig, opts ...OptionOpenDB) *sql.DB {
 	c := GetConnector(config, opts...)
 	return sql.OpenDB(c)
 }
@@ -242,11 +242,11 @@ func OpenDBFromPool(pool *pgxpool.Pool, opts ...OptionOpenDB) *sql.DB {
 }
 
 type connector struct {
-	pgx.ConnConfig
+	dbx.ConnConfig
 	pool          *pgxpool.Pool
-	BeforeConnect func(context.Context, *pgx.ConnConfig) error // function to call before creation of every new connection
-	AfterConnect  func(context.Context, *pgx.Conn) error       // function to call after creation of every new connection
-	ResetSession  func(context.Context, *pgx.Conn) error       // function is called before a connection is reused
+	BeforeConnect func(context.Context, *dbx.ConnConfig) error // function to call before creation of every new connection
+	AfterConnect  func(context.Context, *dbx.Conn) error       // function to call after creation of every new connection
+	ResetSession  func(context.Context, *dbx.Conn) error       // function is called before a connection is reused
 	ShouldPing    func(context.Context, ShouldPingParams) bool // function to decide if stdlib should ping before reusing a connection
 	driver        *Driver
 }
@@ -254,8 +254,8 @@ type connector struct {
 // Connect implement driver.Connector interface
 func (c connector) Connect(ctx context.Context) (driver.Conn, error) {
 	var (
-		connConfig pgx.ConnConfig
-		conn       *pgx.Conn
+		connConfig dbx.ConnConfig
+		conn       *dbx.Conn
 		close      func(context.Context) error
 		err        error
 	)
@@ -268,7 +268,7 @@ func (c connector) Connect(ctx context.Context) (driver.Conn, error) {
 			return nil, err
 		}
 
-		if conn, err = pgx.ConnectConfig(ctx, &connConfig); err != nil {
+		if conn, err = dbx.ConnectConfig(ctx, &connConfig); err != nil {
 			return nil, err
 		}
 
@@ -317,7 +317,7 @@ func GetDefaultDriver() driver.Driver {
 
 type Driver struct {
 	configMutex sync.Mutex
-	configs     map[string]*pgx.ConnConfig
+	configs     map[string]*dbx.ConnConfig
 	sequence    int
 }
 
@@ -336,7 +336,7 @@ func (d *Driver) OpenConnector(name string) (driver.Connector, error) {
 	return &driverConnector{driver: d, name: name}, nil
 }
 
-func (d *Driver) registerConnConfig(c *pgx.ConnConfig) string {
+func (d *Driver) registerConnConfig(c *dbx.ConnConfig) string {
 	d.configMutex.Lock()
 	connStr := fmt.Sprintf("registeredConnConfig%d", d.sequence)
 	d.sequence++
@@ -357,7 +357,7 @@ type driverConnector struct {
 }
 
 func (dc *driverConnector) Connect(ctx context.Context) (driver.Conn, error) {
-	var connConfig *pgx.ConnConfig
+	var connConfig *dbx.ConnConfig
 
 	dc.driver.configMutex.Lock()
 	connConfig = dc.driver.configs[dc.name]
@@ -365,13 +365,13 @@ func (dc *driverConnector) Connect(ctx context.Context) (driver.Conn, error) {
 
 	if connConfig == nil {
 		var err error
-		connConfig, err = pgx.ParseConfig(dc.name)
+		connConfig, err = dbx.ParseConfig(dc.name)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
+	conn, err := dbx.ConnectConfig(ctx, connConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +381,7 @@ func (dc *driverConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		close:            conn.Close,
 		driver:           dc.driver,
 		connConfig:       *connConfig,
-		resetSessionFunc: func(context.Context, *pgx.Conn) error { return nil },
+		resetSessionFunc: func(context.Context, *dbx.Conn) error { return nil },
 		psRefCounts:      make(map[*pgconn.StatementDescription]int),
 	}
 
@@ -393,7 +393,7 @@ func (dc *driverConnector) Driver() driver.Driver {
 }
 
 // RegisterConnConfig registers a ConnConfig and returns the connection string to use with Open.
-func RegisterConnConfig(c *pgx.ConnConfig) string {
+func RegisterConnConfig(c *dbx.ConnConfig) string {
 	return pgxDriver.registerConnConfig(c)
 }
 
@@ -403,11 +403,11 @@ func UnregisterConnConfig(connStr string) {
 }
 
 type Conn struct {
-	conn                 *pgx.Conn
+	conn                 *dbx.Conn
 	close                func(context.Context) error
 	driver               *Driver
-	connConfig           pgx.ConnConfig
-	resetSessionFunc     func(context.Context, *pgx.Conn) error       // Function is called before a connection is reused
+	connConfig           dbx.ConnConfig
+	resetSessionFunc     func(context.Context, *dbx.Conn) error       // Function is called before a connection is reused
 	shouldPing           func(context.Context, ShouldPingParams) bool // Function to decide if stdlib should ping before reusing a connection
 	lastResetSessionTime time.Time
 
@@ -420,8 +420,8 @@ type Conn struct {
 	psRefCounts map[*pgconn.StatementDescription]int
 }
 
-// Conn returns the underlying *pgx.Conn
-func (c *Conn) Conn() *pgx.Conn {
+// Conn returns the underlying *dbx.Conn
+func (c *Conn) Conn() *dbx.Conn {
 	return c.conn
 }
 
@@ -458,23 +458,23 @@ func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 		return nil, driver.ErrBadConn
 	}
 
-	var pgxOpts pgx.TxOptions
+	var pgxOpts dbx.TxOptions
 	switch sql.IsolationLevel(opts.Isolation) {
 	case sql.LevelDefault:
 	case sql.LevelReadUncommitted:
-		pgxOpts.IsoLevel = pgx.ReadUncommitted
+		pgxOpts.IsoLevel = dbx.ReadUncommitted
 	case sql.LevelReadCommitted:
-		pgxOpts.IsoLevel = pgx.ReadCommitted
+		pgxOpts.IsoLevel = dbx.ReadCommitted
 	case sql.LevelRepeatableRead, sql.LevelSnapshot:
-		pgxOpts.IsoLevel = pgx.RepeatableRead
+		pgxOpts.IsoLevel = dbx.RepeatableRead
 	case sql.LevelSerializable:
-		pgxOpts.IsoLevel = pgx.Serializable
+		pgxOpts.IsoLevel = dbx.Serializable
 	default:
 		return nil, fmt.Errorf("unsupported isolation: %v", opts.Isolation)
 	}
 
 	if opts.ReadOnly {
-		pgxOpts.AccessMode = pgx.ReadOnly
+		pgxOpts.AccessMode = dbx.ReadOnly
 	}
 
 	tx, err := c.conn.BeginTx(ctx, pgxOpts)
@@ -628,7 +628,7 @@ type rowValueFunc func(src []byte) (driver.Value, error)
 
 type Rows struct {
 	conn         *Conn
-	rows         pgx.Rows
+	rows         dbx.Rows
 	valueFuncs   []rowValueFunc
 	skipNext     bool
 	skipNextMore bool
@@ -901,7 +901,7 @@ func convertNamedArguments(args []any, argsV []driver.NamedValue) {
 
 type wrapTx struct {
 	ctx context.Context
-	tx  pgx.Tx
+	tx  dbx.Tx
 }
 
 func (wtx wrapTx) Commit() error { return wtx.tx.Commit(wtx.ctx) }

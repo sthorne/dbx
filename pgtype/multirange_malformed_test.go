@@ -3,7 +3,7 @@ package pgtype_test
 import (
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/sthorne/dbx/v5/pgtype"
 )
 
 // A binary multirange value shorter than the 4-byte element-count header must

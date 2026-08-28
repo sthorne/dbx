@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"testing"
 
-	pgx "github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgtype"
+	"github.com/sthorne/dbx/v5/pgxtest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +38,7 @@ func TestJSONBTranscode(t *testing.T) {
 }
 
 func TestJSONBCodecUnmarshalSQLNull(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		// Slices are nilified
 		slice := []string{"foo", "bar", "baz"}
 		err := conn.QueryRow(ctx, "select null::jsonb").Scan(&slice)
@@ -76,7 +76,7 @@ func TestJSONBCodecUnmarshalSQLNull(t *testing.T) {
 
 // https://github.com/jackc/pgx/issues/1681
 func TestJSONBCodecEncodeJSONMarshalerThatCanBeWrapped(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		var jsonStr string
 		err := conn.QueryRow(context.Background(), "select $1::jsonb", &ParentIssue1681{}).Scan(&jsonStr)
 		require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestJSONBCodecEncodeJSONMarshalerThatCanBeWrapped(t *testing.T) {
 
 func TestJSONBCodecCustomMarshal(t *testing.T) {
 	connTestRunner := defaultConnTestRunner
-	connTestRunner.AfterConnect = func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	connTestRunner.AfterConnect = func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		conn.TypeMap().RegisterType(&pgtype.Type{
 			Name: "jsonb", OID: pgtype.JSONBOID, Codec: &pgtype.JSONBCodec{
 				Marshal: func(v any) ([]byte, error) {

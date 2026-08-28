@@ -1,4 +1,4 @@
-package pgx_test
+package dbx_test
 
 import (
 	"context"
@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgxtest"
 )
 
 type testRowScanner struct {
@@ -21,14 +21,14 @@ type testRowScanner struct {
 	age  int32
 }
 
-func (rs *testRowScanner) ScanRow(rows pgx.Rows) error {
+func (rs *testRowScanner) ScanRow(rows dbx.Rows) error {
 	return rows.Scan(&rs.name, &rs.age)
 }
 
 func TestRowScanner(t *testing.T) {
 	t.Parallel()
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		var s testRowScanner
 		err := conn.QueryRow(ctx, "select 'Adam' as name, 72 as height").Scan(&s)
 		require.NoError(t, err)
@@ -39,7 +39,7 @@ func TestRowScanner(t *testing.T) {
 
 type testErrRowScanner string
 
-func (ers *testErrRowScanner) ScanRow(rows pgx.Rows) error {
+func (ers *testErrRowScanner) ScanRow(rows dbx.Rows) error {
 	return errors.New(string(*ers))
 }
 
@@ -47,7 +47,7 @@ func (ers *testErrRowScanner) ScanRow(rows pgx.Rows) error {
 func TestRowScannerErrorIsFatalToRows(t *testing.T) {
 	t.Parallel()
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		s := testErrRowScanner("foo")
 		err := conn.QueryRow(ctx, "select 'Adam' as name, 72 as height").Scan(&s)
 		require.EqualError(t, err, "foo")
@@ -60,7 +60,7 @@ func TestForEachRow(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		var actualResults []any
 
 		rows, _ := conn.Query(
@@ -69,7 +69,7 @@ func TestForEachRow(t *testing.T) {
 			3,
 		)
 		var a, b int
-		ct, err := pgx.ForEachRow(rows, []any{&a, &b}, func() error {
+		ct, err := dbx.ForEachRow(rows, []any{&a, &b}, func() error {
 			actualResults = append(actualResults, []any{a, b})
 			return nil
 		})
@@ -91,7 +91,7 @@ func TestForEachRowScanError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		var actualResults []any
 
 		rows, _ := conn.Query(
@@ -100,7 +100,7 @@ func TestForEachRowScanError(t *testing.T) {
 			3,
 		)
 		var a, b int
-		ct, err := pgx.ForEachRow(rows, []any{&a, &b}, func() error {
+		ct, err := dbx.ForEachRow(rows, []any{&a, &b}, func() error {
 			actualResults = append(actualResults, []any{a, b})
 			return nil
 		})
@@ -115,14 +115,14 @@ func TestForEachRowAbort(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, defaultConnTestRunner, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(
 			context.Background(),
 			"select n, n * 2 from generate_series(1, $1) n",
 			3,
 		)
 		var a, b int
-		ct, err := pgx.ForEachRow(rows, []any{&a, &b}, func() error {
+		ct, err := dbx.ForEachRow(rows, []any{&a, &b}, func() error {
 			return errors.New("abort")
 		})
 		require.EqualError(t, err, "abort")
@@ -131,7 +131,7 @@ func TestForEachRowAbort(t *testing.T) {
 }
 
 func ExampleForEachRow() {
-	conn, err := pgx.Connect(context.Background(), os.Getenv("PGX_TEST_DATABASE"))
+	conn, err := dbx.Connect(context.Background(), os.Getenv("PGX_TEST_DATABASE"))
 	if err != nil {
 		fmt.Printf("Unable to establish connection: %v", err)
 		return
@@ -143,7 +143,7 @@ func ExampleForEachRow() {
 		3,
 	)
 	var a, b int
-	_, err = pgx.ForEachRow(rows, []any{&a, &b}, func() error {
+	_, err = dbx.ForEachRow(rows, []any{&a, &b}, func() error {
 		fmt.Printf("%v, %v\n", a, b)
 		return nil
 	})
@@ -159,9 +159,9 @@ func ExampleForEachRow() {
 }
 
 func TestCollectRows(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select n from generate_series(0, 99) n`)
-		numbers, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (int32, error) {
+		numbers, err := dbx.CollectRows(rows, func(row dbx.CollectableRow) (int32, error) {
 			var n int32
 			err := row.Scan(&n)
 			return n, err
@@ -176,9 +176,9 @@ func TestCollectRows(t *testing.T) {
 }
 
 func TestCollectRowsEmpty(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select n from generate_series(1, 0) n`)
-		numbers, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (int32, error) {
+		numbers, err := dbx.CollectRows(rows, func(row dbx.CollectableRow) (int32, error) {
 			var n int32
 			err := row.Scan(&n)
 			return n, err
@@ -196,14 +196,14 @@ func ExampleCollectRows() {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	conn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	conn, err := dbx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
 	if err != nil {
 		fmt.Printf("Unable to establish connection: %v", err)
 		return
 	}
 
 	rows, _ := conn.Query(ctx, `select n from generate_series(1, 5) n`)
-	numbers, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (int32, error) {
+	numbers, err := dbx.CollectRows(rows, func(row dbx.CollectableRow) (int32, error) {
 		var n int32
 		err := row.Scan(&n)
 		return n, err
@@ -220,9 +220,9 @@ func ExampleCollectRows() {
 }
 
 func TestCollectOneRow(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 42`)
-		n, err := pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (int32, error) {
+		n, err := dbx.CollectOneRow(rows, func(row dbx.CollectableRow) (int32, error) {
 			var n int32
 			err := row.Scan(&n)
 			return n, err
@@ -233,22 +233,22 @@ func TestCollectOneRow(t *testing.T) {
 }
 
 func TestCollectOneRowNotFound(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 42 where false`)
-		n, err := pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (int32, error) {
+		n, err := dbx.CollectOneRow(rows, func(row dbx.CollectableRow) (int32, error) {
 			var n int32
 			err := row.Scan(&n)
 			return n, err
 		})
-		assert.ErrorIs(t, err, pgx.ErrNoRows)
+		assert.ErrorIs(t, err, dbx.ErrNoRows)
 		assert.Equal(t, int32(0), n)
 	})
 }
 
 func TestCollectOneRowIgnoresExtraRows(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select n from generate_series(42, 99) n`)
-		n, err := pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (int32, error) {
+		n, err := dbx.CollectOneRow(rows, func(row dbx.CollectableRow) (int32, error) {
 			var n int32
 			err := row.Scan(&n)
 			return n, err
@@ -262,13 +262,13 @@ func TestCollectOneRowIgnoresExtraRows(t *testing.T) {
 
 // https://github.com/jackc/pgx/issues/1334
 func TestCollectOneRowPrefersPostgreSQLErrorOverErrNoRows(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		_, err := conn.Exec(ctx, `create temporary table t (name text not null unique)`)
 		require.NoError(t, err)
 
 		var name string
 		rows, _ := conn.Query(ctx, `insert into t (name) values ('foo') returning name`)
-		name, err = pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (string, error) {
+		name, err = dbx.CollectOneRow(rows, func(row dbx.CollectableRow) (string, error) {
 			var n string
 			err := row.Scan(&n)
 			return n, err
@@ -277,7 +277,7 @@ func TestCollectOneRowPrefersPostgreSQLErrorOverErrNoRows(t *testing.T) {
 		require.Equal(t, "foo", name)
 
 		rows, _ = conn.Query(ctx, `insert into t (name) values ('foo') returning name`)
-		name, err = pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (string, error) {
+		name, err = dbx.CollectOneRow(rows, func(row dbx.CollectableRow) (string, error) {
 			var n string
 			err := row.Scan(&n)
 			return n, err
@@ -291,9 +291,9 @@ func TestCollectOneRowPrefersPostgreSQLErrorOverErrNoRows(t *testing.T) {
 }
 
 func TestCollectExactlyOneRow(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 42`)
-		n, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (int32, error) {
+		n, err := dbx.CollectExactlyOneRow(rows, func(row dbx.CollectableRow) (int32, error) {
 			var n int32
 			err := row.Scan(&n)
 			return n, err
@@ -304,35 +304,35 @@ func TestCollectExactlyOneRow(t *testing.T) {
 }
 
 func TestCollectExactlyOneRowNotFound(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 42 where false`)
-		n, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (int32, error) {
+		n, err := dbx.CollectExactlyOneRow(rows, func(row dbx.CollectableRow) (int32, error) {
 			var n int32
 			err := row.Scan(&n)
 			return n, err
 		})
-		assert.ErrorIs(t, err, pgx.ErrNoRows)
+		assert.ErrorIs(t, err, dbx.ErrNoRows)
 		assert.Equal(t, int32(0), n)
 	})
 }
 
 func TestCollectExactlyOneRowExtraRows(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select n from generate_series(42, 99) n`)
-		n, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (int32, error) {
+		n, err := dbx.CollectExactlyOneRow(rows, func(row dbx.CollectableRow) (int32, error) {
 			var n int32
 			err := row.Scan(&n)
 			return n, err
 		})
-		assert.ErrorIs(t, err, pgx.ErrTooManyRows)
+		assert.ErrorIs(t, err, dbx.ErrTooManyRows)
 		assert.Equal(t, int32(0), n)
 	})
 }
 
 func TestRowTo(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select n from generate_series(0, 99) n`)
-		numbers, err := pgx.CollectRows(rows, pgx.RowTo[int32])
+		numbers, err := dbx.CollectRows(rows, dbx.RowTo[int32])
 		require.NoError(t, err)
 
 		assert.Len(t, numbers, 100)
@@ -346,14 +346,14 @@ func ExampleRowTo() {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	conn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	conn, err := dbx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
 	if err != nil {
 		fmt.Printf("Unable to establish connection: %v", err)
 		return
 	}
 
 	rows, _ := conn.Query(ctx, `select n from generate_series(1, 5) n`)
-	numbers, err := pgx.CollectRows(rows, pgx.RowTo[int32])
+	numbers, err := dbx.CollectRows(rows, dbx.RowTo[int32])
 	if err != nil {
 		fmt.Printf("CollectRows error: %v", err)
 		return
@@ -366,9 +366,9 @@ func ExampleRowTo() {
 }
 
 func TestRowToAddrOf(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select n from generate_series(0, 99) n`)
-		numbers, err := pgx.CollectRows(rows, pgx.RowToAddrOf[int32])
+		numbers, err := dbx.CollectRows(rows, dbx.RowToAddrOf[int32])
 		require.NoError(t, err)
 
 		assert.Len(t, numbers, 100)
@@ -382,14 +382,14 @@ func ExampleRowToAddrOf() {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	conn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	conn, err := dbx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
 	if err != nil {
 		fmt.Printf("Unable to establish connection: %v", err)
 		return
 	}
 
 	rows, _ := conn.Query(ctx, `select n from generate_series(1, 5) n`)
-	pNumbers, err := pgx.CollectRows(rows, pgx.RowToAddrOf[int32])
+	pNumbers, err := dbx.CollectRows(rows, dbx.RowToAddrOf[int32])
 	if err != nil {
 		fmt.Printf("CollectRows error: %v", err)
 		return
@@ -408,9 +408,9 @@ func ExampleRowToAddrOf() {
 }
 
 func TestRowToMap(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'Joe' as name, n as age from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToMap)
+		slice, err := dbx.CollectRows(rows, dbx.RowToMap)
 		require.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -427,9 +427,9 @@ func TestRowToStructByPos(t *testing.T) {
 		Age  int32
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'Joe' as name, n as age from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByPos[person])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByPos[person])
 		require.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -446,9 +446,9 @@ func TestRowToStructByPosIgnoredField(t *testing.T) {
 		Age  int32 `db:"-"`
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'Joe' as name from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByPos[person])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByPos[person])
 		require.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -469,9 +469,9 @@ func TestRowToStructByPosEmbeddedStruct(t *testing.T) {
 		Age int32
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'John' as first_name, 'Smith' as last_name, n as age from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByPos[person])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByPos[person])
 		require.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -497,9 +497,9 @@ func TestRowToStructByPosMultipleEmbeddedStruct(t *testing.T) {
 		Drink
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'Baguette' as bread, 'Lettuce' as salad, drink_ml from generate_series(0, 9) drink_ml`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByPos[meal])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByPos[meal])
 		require.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -522,9 +522,9 @@ func TestRowToStructByPosEmbeddedUnexportedStruct(t *testing.T) {
 		Age int32
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'John' as first_name, 'Smith' as last_name, n as age from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByPos[person])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByPos[person])
 		require.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -548,9 +548,9 @@ func TestRowToStructByPosEmbeddedPointerToStruct(t *testing.T) {
 		Age int32
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'John' as first_name, 'Smith' as last_name, n as age from generate_series(0, 9) n`)
-		_, err := pgx.CollectRows(rows, pgx.RowToStructByPos[person])
+		_, err := dbx.CollectRows(rows, dbx.RowToStructByPos[person])
 		require.EqualError(t, err, "got 3 values, but dst struct has only 2 fields")
 	})
 }
@@ -559,7 +559,7 @@ func ExampleRowToStructByPos() {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	conn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	conn, err := dbx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
 	if err != nil {
 		fmt.Printf("Unable to establish connection: %v", err)
 		return
@@ -599,7 +599,7 @@ insert into products (name, price) values
 	}
 
 	rows, _ := conn.Query(ctx, "select * from products where price < $1 order by price desc", 12)
-	products, err := pgx.CollectRows(rows, pgx.RowToStructByPos[product])
+	products, err := dbx.CollectRows(rows, dbx.RowToStructByPos[product])
 	if err != nil {
 		fmt.Printf("CollectRows error: %v", err)
 		return
@@ -621,9 +621,9 @@ func TestRowToAddrOfStructPos(t *testing.T) {
 		Age  int32
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'Joe' as name, n as age from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByPos[person])
+		slice, err := dbx.CollectRows(rows, dbx.RowToAddrOfStructByPos[person])
 		require.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -642,9 +642,9 @@ func TestRowToStructByName(t *testing.T) {
 		AccountID string
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'John' as first, 'Smith' as last, n as age, 'd5e49d3f' as account_id from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByName[person])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByName[person])
 		assert.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -657,12 +657,12 @@ func TestRowToStructByName(t *testing.T) {
 
 		// check missing fields in a returned row
 		rows, _ = conn.Query(ctx, `select 'Smith' as last, n as age from generate_series(0, 9) n`)
-		_, err = pgx.CollectRows(rows, pgx.RowToStructByName[person])
+		_, err = dbx.CollectRows(rows, dbx.RowToStructByName[person])
 		assert.ErrorContains(t, err, "cannot find field First in returned row")
 
 		// check missing field in a destination struct
 		rows, _ = conn.Query(ctx, `select 'John' as first, 'Smith' as last, n as age, 'd5e49d3f' as account_id, null as ignore from generate_series(0, 9) n`)
-		_, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[person])
+		_, err = dbx.CollectRows(rows, dbx.RowToAddrOfStructByName[person])
 		assert.ErrorContains(t, err, "struct doesn't have corresponding row field ignore")
 	})
 }
@@ -675,9 +675,9 @@ func TestRowToStructByNameDoublePointer(t *testing.T) {
 		AccountID string
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'John' as first, 'Smith' as last, n as age, 'd5e49d3f' as account_id from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByName[person])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByName[person])
 		assert.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -689,7 +689,7 @@ func TestRowToStructByNameDoublePointer(t *testing.T) {
 		}
 
 		rows, _ = conn.Query(ctx, `select NULL as first, 'Smith' as last, n as age, 'd5e49d3f' as account_id from generate_series(0, 9) n`)
-		slice, err = pgx.CollectRows(rows, pgx.RowToStructByName[person])
+		slice, err = dbx.CollectRows(rows, dbx.RowToStructByName[person])
 		assert.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -710,9 +710,9 @@ func TestRowToStructByNameTriplePointer(t *testing.T) {
 		AccountID string
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'John' as first, 'Smith' as last, n as age, 'd5e49d3f' as account_id from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByName[person])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByName[person])
 		assert.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -724,7 +724,7 @@ func TestRowToStructByNameTriplePointer(t *testing.T) {
 		}
 
 		rows, _ = conn.Query(ctx, `select NULL as first, 'Smith' as last, n as age, 'd5e49d3f' as account_id from generate_series(0, 9) n`)
-		slice, err = pgx.CollectRows(rows, pgx.RowToStructByName[person])
+		slice, err = dbx.CollectRows(rows, dbx.RowToStructByName[person])
 		assert.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -746,9 +746,9 @@ func TestRowToStructByNameDbTags(t *testing.T) {
 		AnotherAccountID string `db:"account__id"`
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'John' as first_name, 'Smith' as last_name, n as age, 'd5e49d3f' as account_id, '5e49d321' as account__id from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByName[person])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByName[person])
 		assert.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -762,12 +762,12 @@ func TestRowToStructByNameDbTags(t *testing.T) {
 
 		// check missing fields in a returned row
 		rows, _ = conn.Query(ctx, `select 'Smith' as last_name, n as age from generate_series(0, 9) n`)
-		_, err = pgx.CollectRows(rows, pgx.RowToStructByName[person])
+		_, err = dbx.CollectRows(rows, dbx.RowToStructByName[person])
 		assert.ErrorContains(t, err, "cannot find field first_name in returned row")
 
 		// check missing field in a destination struct
 		rows, _ = conn.Query(ctx, `select 'John' as first_name, 'Smith' as last_name, n as age, 'd5e49d3f' as account_id, '5e49d321' as account__id, null as ignore from generate_series(0, 9) n`)
-		_, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[person])
+		_, err = dbx.CollectRows(rows, dbx.RowToAddrOfStructByName[person])
 		assert.ErrorContains(t, err, "struct doesn't have corresponding row field ignore")
 	})
 }
@@ -781,9 +781,9 @@ func TestRowToStructByNameDbTagsCaseInsensitive(t *testing.T) {
 		Region string `db:"Region"`
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'east' as Region`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByName[record])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByName[record])
 		require.NoError(t, err)
 		require.Len(t, slice, 1)
 		assert.Equal(t, "east", slice[0].Region)
@@ -802,9 +802,9 @@ func TestRowToStructByNameEmbeddedStruct(t *testing.T) {
 		Age int32
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'John' as first_name, 'Smith' as last_name, n as age from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByName[person])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByName[person])
 		assert.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -816,12 +816,12 @@ func TestRowToStructByNameEmbeddedStruct(t *testing.T) {
 
 		// check missing fields in a returned row
 		rows, _ = conn.Query(ctx, `select 'Smith' as last_name, n as age from generate_series(0, 9) n`)
-		_, err = pgx.CollectRows(rows, pgx.RowToStructByName[person])
+		_, err = dbx.CollectRows(rows, dbx.RowToStructByName[person])
 		assert.ErrorContains(t, err, "cannot find field first_name in returned row")
 
 		// check missing field in a destination struct
 		rows, _ = conn.Query(ctx, `select 'John' as first_name, 'Smith' as last_name, n as age, null as ignore from generate_series(0, 9) n`)
-		_, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[person])
+		_, err = dbx.CollectRows(rows, dbx.RowToAddrOfStructByName[person])
 		assert.ErrorContains(t, err, "struct doesn't have corresponding row field ignore")
 	})
 }
@@ -830,7 +830,7 @@ func ExampleRowToStructByName() {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	conn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	conn, err := dbx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
 	if err != nil {
 		fmt.Printf("Unable to establish connection: %v", err)
 		return
@@ -870,7 +870,7 @@ insert into products (name, price) values
 	}
 
 	rows, _ := conn.Query(ctx, "select * from products where price < $1 order by price desc", 12)
-	products, err := pgx.CollectRows(rows, pgx.RowToStructByName[product])
+	products, err := dbx.CollectRows(rows, dbx.RowToStructByName[product])
 	if err != nil {
 		fmt.Printf("CollectRows error: %v", err)
 		return
@@ -894,9 +894,9 @@ func TestRowToStructByNameLax(t *testing.T) {
 		Ignore bool `db:"-"`
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'John' as first, 'Smith' as last, n as age from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[person])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByNameLax[person])
 		assert.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -908,7 +908,7 @@ func TestRowToStructByNameLax(t *testing.T) {
 
 		// check missing fields in a returned row
 		rows, _ = conn.Query(ctx, `select 'John' as first, n as age from generate_series(0, 9) n`)
-		slice, err = pgx.CollectRows(rows, pgx.RowToStructByNameLax[person])
+		slice, err = dbx.CollectRows(rows, dbx.RowToStructByNameLax[person])
 		assert.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -919,17 +919,17 @@ func TestRowToStructByNameLax(t *testing.T) {
 
 		// check extra fields in a returned row
 		rows, _ = conn.Query(ctx, `select 'John' as first, 'Smith' as last, n as age, null as ignore from generate_series(0, 9) n`)
-		_, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[person])
+		_, err = dbx.CollectRows(rows, dbx.RowToAddrOfStructByNameLax[person])
 		assert.ErrorContains(t, err, "struct doesn't have corresponding row field ignore")
 
 		// check missing fields in a destination struct
 		rows, _ = conn.Query(ctx, `select 'Smith' as last, 'D.' as middle, n as age from generate_series(0, 9) n`)
-		_, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[person])
+		_, err = dbx.CollectRows(rows, dbx.RowToAddrOfStructByNameLax[person])
 		assert.ErrorContains(t, err, "struct doesn't have corresponding row field middle")
 
 		// check ignored fields in a destination struct
 		rows, _ = conn.Query(ctx, `select 'Smith' as last, n as age, null as ignore from generate_series(0, 9) n`)
-		_, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[person])
+		_, err = dbx.CollectRows(rows, dbx.RowToAddrOfStructByNameLax[person])
 		assert.ErrorContains(t, err, "struct doesn't have corresponding row field ignore")
 	})
 }
@@ -946,9 +946,9 @@ func TestRowToStructByNameLaxEmbeddedStruct(t *testing.T) {
 		Age int32
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		rows, _ := conn.Query(ctx, `select 'John' as first_name, 'Smith' as last_name, n as age from generate_series(0, 9) n`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[person])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByNameLax[person])
 		assert.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -960,7 +960,7 @@ func TestRowToStructByNameLaxEmbeddedStruct(t *testing.T) {
 
 		// check missing fields in a returned row
 		rows, _ = conn.Query(ctx, `select 'John' as first_name, n as age from generate_series(0, 9) n`)
-		slice, err = pgx.CollectRows(rows, pgx.RowToStructByNameLax[person])
+		slice, err = dbx.CollectRows(rows, dbx.RowToStructByNameLax[person])
 		assert.NoError(t, err)
 
 		assert.Len(t, slice, 10)
@@ -971,17 +971,17 @@ func TestRowToStructByNameLaxEmbeddedStruct(t *testing.T) {
 
 		// check extra fields in a returned row
 		rows, _ = conn.Query(ctx, `select 'John' as first_name, 'Smith' as last_name, n as age, null as ignore from generate_series(0, 9) n`)
-		_, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[person])
+		_, err = dbx.CollectRows(rows, dbx.RowToAddrOfStructByNameLax[person])
 		assert.ErrorContains(t, err, "struct doesn't have corresponding row field ignore")
 
 		// check missing fields in a destination struct
 		rows, _ = conn.Query(ctx, `select 'Smith' as last_name, 'D.' as middle_name, n as age from generate_series(0, 9) n`)
-		_, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[person])
+		_, err = dbx.CollectRows(rows, dbx.RowToAddrOfStructByNameLax[person])
 		assert.ErrorContains(t, err, "struct doesn't have corresponding row field middle_name")
 
 		// check ignored fields in a destination struct
 		rows, _ = conn.Query(ctx, `select 'Smith' as last_name, n as age, null as ignore from generate_series(0, 9) n`)
-		_, err = pgx.CollectRows(rows, pgx.RowToAddrOfStructByNameLax[person])
+		_, err = dbx.CollectRows(rows, dbx.RowToAddrOfStructByNameLax[person])
 		assert.ErrorContains(t, err, "struct doesn't have corresponding row field ignore")
 	})
 }
@@ -1000,7 +1000,7 @@ func TestRowToStructByNameLaxRowValue(t *testing.T) {
 		AnotherTable *AnotherTable `json:"anotherTable" db:"another_table"`
 	}
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		pgxtest.SkipCockroachDB(t, conn, "")
 
 		rows, _ := conn.Query(ctx, `
@@ -1014,7 +1014,7 @@ func TestRowToStructByNameLaxRowValue(t *testing.T) {
 		LEFT JOIN users ON users.user_id = user_api_keys.user_id
 		WHERE user_api_keys.api_key = 'abc123';
 		`)
-		slice, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[UserAPIKey])
+		slice, err := dbx.CollectRows(rows, dbx.RowToStructByNameLax[UserAPIKey])
 
 		assert.NoError(t, err)
 		assert.ElementsMatch(t, slice, []UserAPIKey{{UserAPIKeyID: 101, UserID: 1, User: &User{UserID: 1, Name: "John Doe"}, AnotherTable: nil}})
@@ -1025,7 +1025,7 @@ func ExampleRowToStructByNameLax() {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	conn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	conn, err := dbx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
 	if err != nil {
 		fmt.Printf("Unable to establish connection: %v", err)
 		return
@@ -1066,7 +1066,7 @@ insert into products (name, price) values
 	}
 
 	rows, _ := conn.Query(ctx, "select * from products where price < $1 order by price desc", 12)
-	products, err := pgx.CollectRows(rows, pgx.RowToStructByNameLax[product])
+	products, err := dbx.CollectRows(rows, dbx.RowToStructByNameLax[product])
 	if err != nil {
 		fmt.Printf("CollectRows error: %v", err)
 		return
@@ -1086,7 +1086,7 @@ insert into products (name, price) values
 func TestRowsTypeMapWithoutConn(t *testing.T) {
 	t.Parallel()
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		pgxtest.SkipCockroachDB(t, conn, "Server does not support pipeline mode")
 
 		pipeline := conn.PgConn().StartPipeline(ctx)
@@ -1098,7 +1098,7 @@ func TestRowsTypeMapWithoutConn(t *testing.T) {
 		rr, ok := results.(*pgconn.ResultReader)
 		require.True(t, ok)
 
-		rows := pgx.RowsFromResultReader(conn.TypeMap(), rr)
+		rows := dbx.RowsFromResultReader(conn.TypeMap(), rr)
 		require.Nil(t, rows.Conn(), "this Rows has no Conn, which is what makes TypeMap necessary")
 		require.Same(t, conn.TypeMap(), rows.TypeMap())
 

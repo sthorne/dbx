@@ -4,50 +4,50 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/multitracer"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/multitracer"
+	"github.com/sthorne/dbx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
 
 type testFullTracer struct{}
 
-func (tt *testFullTracer) TraceQueryStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+func (tt *testFullTracer) TraceQueryStart(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryStartData) context.Context {
 	return ctx
 }
 
-func (tt *testFullTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
+func (tt *testFullTracer) TraceQueryEnd(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryEndData) {
 }
 
-func (tt *testFullTracer) TraceBatchStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchStartData) context.Context {
+func (tt *testFullTracer) TraceBatchStart(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchStartData) context.Context {
 	return ctx
 }
 
-func (tt *testFullTracer) TraceBatchQuery(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchQueryData) {
+func (tt *testFullTracer) TraceBatchQuery(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchQueryData) {
 }
 
-func (tt *testFullTracer) TraceBatchEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchEndData) {
+func (tt *testFullTracer) TraceBatchEnd(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchEndData) {
 }
 
-func (tt *testFullTracer) TraceCopyFromStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceCopyFromStartData) context.Context {
+func (tt *testFullTracer) TraceCopyFromStart(ctx context.Context, conn *dbx.Conn, data dbx.TraceCopyFromStartData) context.Context {
 	return ctx
 }
 
-func (tt *testFullTracer) TraceCopyFromEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceCopyFromEndData) {
+func (tt *testFullTracer) TraceCopyFromEnd(ctx context.Context, conn *dbx.Conn, data dbx.TraceCopyFromEndData) {
 }
 
-func (tt *testFullTracer) TracePrepareStart(ctx context.Context, conn *pgx.Conn, data pgx.TracePrepareStartData) context.Context {
+func (tt *testFullTracer) TracePrepareStart(ctx context.Context, conn *dbx.Conn, data dbx.TracePrepareStartData) context.Context {
 	return ctx
 }
 
-func (tt *testFullTracer) TracePrepareEnd(ctx context.Context, conn *pgx.Conn, data pgx.TracePrepareEndData) {
+func (tt *testFullTracer) TracePrepareEnd(ctx context.Context, conn *dbx.Conn, data dbx.TracePrepareEndData) {
 }
 
-func (tt *testFullTracer) TraceConnectStart(ctx context.Context, data pgx.TraceConnectStartData) context.Context {
+func (tt *testFullTracer) TraceConnectStart(ctx context.Context, data dbx.TraceConnectStartData) context.Context {
 	return ctx
 }
 
-func (tt *testFullTracer) TraceConnectEnd(ctx context.Context, data pgx.TraceConnectEndData) {
+func (tt *testFullTracer) TraceConnectEnd(ctx context.Context, data dbx.TraceConnectEndData) {
 }
 
 func (tt *testFullTracer) TraceAcquireStart(ctx context.Context, pool *pgxpool.Pool, data pgxpool.TraceAcquireStartData) context.Context {
@@ -62,18 +62,18 @@ func (tt *testFullTracer) TraceRelease(pool *pgxpool.Pool, data pgxpool.TraceRel
 
 type testCopyTracer struct{}
 
-func (tt *testCopyTracer) TraceQueryStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+func (tt *testCopyTracer) TraceQueryStart(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryStartData) context.Context {
 	return ctx
 }
 
-func (tt *testCopyTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
+func (tt *testCopyTracer) TraceQueryEnd(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryEndData) {
 }
 
-func (tt *testCopyTracer) TraceCopyFromStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceCopyFromStartData) context.Context {
+func (tt *testCopyTracer) TraceCopyFromStart(ctx context.Context, conn *dbx.Conn, data dbx.TraceCopyFromStartData) context.Context {
 	return ctx
 }
 
-func (tt *testCopyTracer) TraceCopyFromEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceCopyFromEndData) {
+func (tt *testCopyTracer) TraceCopyFromEnd(ctx context.Context, conn *dbx.Conn, data dbx.TraceCopyFromEndData) {
 }
 
 func TestNew(t *testing.T) {
@@ -86,21 +86,21 @@ func TestNew(t *testing.T) {
 	require.Equal(
 		t,
 		&multitracer.Tracer{
-			QueryTracers: []pgx.QueryTracer{
+			QueryTracers: []dbx.QueryTracer{
 				fullTracer,
 				copyTracer,
 			},
-			BatchTracers: []pgx.BatchTracer{
+			BatchTracers: []dbx.BatchTracer{
 				fullTracer,
 			},
-			CopyFromTracers: []pgx.CopyFromTracer{
+			CopyFromTracers: []dbx.CopyFromTracer{
 				fullTracer,
 				copyTracer,
 			},
-			PrepareTracers: []pgx.PrepareTracer{
+			PrepareTracers: []dbx.PrepareTracer{
 				fullTracer,
 			},
-			ConnectTracers: []pgx.ConnectTracer{
+			ConnectTracers: []dbx.ConnectTracer{
 				fullTracer,
 			},
 			PoolAcquireTracers: []pgxpool.AcquireTracer{

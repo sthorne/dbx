@@ -1,4 +1,4 @@
-package pgx_test
+package dbx_test
 
 import (
 	"bytes"
@@ -12,15 +12,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkConnectClose(b *testing.B) {
 	for b.Loop() {
-		conn, err := pgx.Connect(context.Background(), os.Getenv("PGX_TEST_DATABASE"))
+		conn, err := dbx.Connect(context.Background(), os.Getenv("PGX_TEST_DATABASE"))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -34,7 +34,7 @@ func BenchmarkConnectClose(b *testing.B) {
 
 func BenchmarkMinimalUnpreparedSelectWithoutStatementCache(b *testing.B) {
 	config := mustParseConfig(b, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
+	config.DefaultQueryExecMode = dbx.QueryExecModeDescribeExec
 	config.StatementCacheCapacity = 0
 	config.DescriptionCacheCapacity = 0
 
@@ -57,7 +57,7 @@ func BenchmarkMinimalUnpreparedSelectWithoutStatementCache(b *testing.B) {
 
 func BenchmarkMinimalUnpreparedSelectWithStatementCacheModeDescribe(b *testing.B) {
 	config := mustParseConfig(b, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeCacheDescribe
+	config.DefaultQueryExecMode = dbx.QueryExecModeCacheDescribe
 	config.StatementCacheCapacity = 0
 	config.DescriptionCacheCapacity = 32
 
@@ -80,7 +80,7 @@ func BenchmarkMinimalUnpreparedSelectWithStatementCacheModeDescribe(b *testing.B
 
 func BenchmarkMinimalUnpreparedSelectWithStatementCacheModePrepare(b *testing.B) {
 	config := mustParseConfig(b, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeCacheStatement
+	config.DefaultQueryExecMode = dbx.QueryExecModeCacheStatement
 	config.StatementCacheCapacity = 32
 	config.DescriptionCacheCapacity = 0
 
@@ -380,7 +380,7 @@ func (s *benchmarkWriteTableCopyFromSrc) Err() error {
 	return nil
 }
 
-func newBenchmarkWriteTableCopyFromSrc(count int) pgx.CopyFromSource {
+func newBenchmarkWriteTableCopyFromSrc(count int) dbx.CopyFromSource {
 	return &benchmarkWriteTableCopyFromSrc{
 		count: count,
 		row: []any{
@@ -446,7 +446,7 @@ func benchmarkWriteNRowsViaBatchInsert(b *testing.B, n int) {
 	for b.Loop() {
 		src := newBenchmarkWriteTableCopyFromSrc(n)
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		for src.Next() {
 			values, _ := src.Values()
 			batch.Queue("insert_t", values...)
@@ -468,7 +468,7 @@ func (qa *queryArgs) Append(v any) string {
 
 // note this function is only used for benchmarks -- it doesn't escape tableName
 // or columnNames
-func multiInsert(conn *pgx.Conn, tableName string, columnNames []string, rowSrc pgx.CopyFromSource) (int, error) {
+func multiInsert(conn *dbx.Conn, tableName string, columnNames []string, rowSrc dbx.CopyFromSource) (int, error) {
 	maxRowsPerInsert := 65535 / len(columnNames)
 	rowsThisInsert := 0
 	rowCount := 0
@@ -588,7 +588,7 @@ func benchmarkWriteNRowsViaCopy(b *testing.B, n int) {
 		src := newBenchmarkWriteTableCopyFromSrc(n)
 
 		_, err := conn.CopyFrom(context.Background(),
-			pgx.Identifier{"t"},
+			dbx.Identifier{"t"},
 			[]string{
 				"varchar_1",
 				"varchar_2",
@@ -709,7 +709,7 @@ func BenchmarkWrite10000RowsViaCopy(b *testing.B) {
 
 func BenchmarkMultipleQueriesNonBatchNoStatementCache(b *testing.B) {
 	config := mustParseConfig(b, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
+	config.DefaultQueryExecMode = dbx.QueryExecModeDescribeExec
 	config.StatementCacheCapacity = 0
 	config.DescriptionCacheCapacity = 0
 
@@ -721,7 +721,7 @@ func BenchmarkMultipleQueriesNonBatchNoStatementCache(b *testing.B) {
 
 func BenchmarkMultipleQueriesNonBatchPrepareStatementCache(b *testing.B) {
 	config := mustParseConfig(b, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeCacheStatement
+	config.DefaultQueryExecMode = dbx.QueryExecModeCacheStatement
 	config.StatementCacheCapacity = 32
 	config.DescriptionCacheCapacity = 0
 
@@ -733,7 +733,7 @@ func BenchmarkMultipleQueriesNonBatchPrepareStatementCache(b *testing.B) {
 
 func BenchmarkMultipleQueriesNonBatchDescribeStatementCache(b *testing.B) {
 	config := mustParseConfig(b, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeCacheDescribe
+	config.DefaultQueryExecMode = dbx.QueryExecModeCacheDescribe
 	config.StatementCacheCapacity = 0
 	config.DescriptionCacheCapacity = 32
 
@@ -743,7 +743,7 @@ func BenchmarkMultipleQueriesNonBatchDescribeStatementCache(b *testing.B) {
 	benchmarkMultipleQueriesNonBatch(b, conn, 3)
 }
 
-func benchmarkMultipleQueriesNonBatch(b *testing.B, conn *pgx.Conn, queryCount int) {
+func benchmarkMultipleQueriesNonBatch(b *testing.B, conn *dbx.Conn, queryCount int) {
 	for b.Loop() {
 		for range queryCount {
 			rows, err := conn.Query(context.Background(), "select n from generate_series(0, 5) n")
@@ -770,7 +770,7 @@ func benchmarkMultipleQueriesNonBatch(b *testing.B, conn *pgx.Conn, queryCount i
 
 func BenchmarkMultipleQueriesBatchNoStatementCache(b *testing.B) {
 	config := mustParseConfig(b, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
+	config.DefaultQueryExecMode = dbx.QueryExecModeDescribeExec
 	config.StatementCacheCapacity = 0
 	config.DescriptionCacheCapacity = 0
 
@@ -782,7 +782,7 @@ func BenchmarkMultipleQueriesBatchNoStatementCache(b *testing.B) {
 
 func BenchmarkMultipleQueriesBatchPrepareStatementCache(b *testing.B) {
 	config := mustParseConfig(b, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeCacheStatement
+	config.DefaultQueryExecMode = dbx.QueryExecModeCacheStatement
 	config.StatementCacheCapacity = 32
 	config.DescriptionCacheCapacity = 0
 
@@ -794,7 +794,7 @@ func BenchmarkMultipleQueriesBatchPrepareStatementCache(b *testing.B) {
 
 func BenchmarkMultipleQueriesBatchDescribeStatementCache(b *testing.B) {
 	config := mustParseConfig(b, os.Getenv("PGX_TEST_DATABASE"))
-	config.DefaultQueryExecMode = pgx.QueryExecModeCacheDescribe
+	config.DefaultQueryExecMode = dbx.QueryExecModeCacheDescribe
 	config.StatementCacheCapacity = 0
 	config.DescriptionCacheCapacity = 32
 
@@ -804,9 +804,9 @@ func BenchmarkMultipleQueriesBatchDescribeStatementCache(b *testing.B) {
 	benchmarkMultipleQueriesBatch(b, conn, 3)
 }
 
-func benchmarkMultipleQueriesBatch(b *testing.B, conn *pgx.Conn, queryCount int) {
+func benchmarkMultipleQueriesBatch(b *testing.B, conn *dbx.Conn, queryCount int) {
 	for b.Loop() {
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		for range queryCount {
 			batch.Queue("select n from generate_series(0,5) n")
 		}
@@ -1061,8 +1061,8 @@ func BenchmarkSelectRowsScanDecoder(b *testing.B) {
 				name string
 				code int16
 			}{
-				{"text", pgx.TextFormatCode},
-				{"binary", pgx.BinaryFormatCode},
+				{"text", dbx.TextFormatCode},
+				{"binary", dbx.BinaryFormatCode},
 			}
 			for _, format := range formats {
 				b.Run(format.name, func(b *testing.B) {
@@ -1071,7 +1071,7 @@ func BenchmarkSelectRowsScanDecoder(b *testing.B) {
 						rows, err := conn.Query(
 							context.Background(),
 							"select n, 'Adam', 'Smith ' || n, 'male', '1952-06-16'::date, 258, 72, '{foo,bar,baz}'::text[], '2001-01-28 01:02:03-05'::timestamptz from generate_series(100001, 100000 + $1) n",
-							pgx.QueryResultFormats{format.code},
+							dbx.QueryResultFormats{format.code},
 							rowCount,
 						)
 						if err != nil {
@@ -1130,8 +1130,8 @@ func BenchmarkSelectRowsPgConnExecParams(b *testing.B) {
 				name string
 				code int16
 			}{
-				{"text", pgx.TextFormatCode},
-				{"binary - mostly", pgx.BinaryFormatCode},
+				{"text", dbx.TextFormatCode},
+				{"binary - mostly", dbx.BinaryFormatCode},
 			}
 			for _, format := range formats {
 				b.Run(format.name, func(b *testing.B) {
@@ -1142,7 +1142,7 @@ func BenchmarkSelectRowsPgConnExecParams(b *testing.B) {
 							[][]byte{[]byte(strconv.FormatInt(rowCount, 10))},
 							nil,
 							nil,
-							[]int16{format.code, pgx.TextFormatCode, pgx.TextFormatCode, pgx.TextFormatCode, format.code, format.code, format.code, format.code, format.code},
+							[]int16{format.code, dbx.TextFormatCode, dbx.TextFormatCode, dbx.TextFormatCode, format.code, format.code, format.code, format.code, format.code},
 						)
 						for rr.NextRow() {
 							rr.Values()
@@ -1169,7 +1169,7 @@ func BenchmarkSelectRowsSimpleCollectRowsRowToStructByPos(b *testing.B) {
 		b.Run(fmt.Sprintf("%d rows", rowCount), func(b *testing.B) {
 			for b.Loop() {
 				rows, _ := conn.Query(context.Background(), "select n, 'Adam', 'Smith ' || n, 'male', '1952-06-16'::date, 258, 72, '{foo,bar,baz}'::text[], '2001-01-28 01:02:03-05'::timestamptz from generate_series(100001, 100000 + $1) n", rowCount)
-				benchRows, err := pgx.CollectRows(rows, pgx.RowToStructByPos[BenchRowSimple])
+				benchRows, err := dbx.CollectRows(rows, dbx.RowToStructByPos[BenchRowSimple])
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -1194,7 +1194,7 @@ func BenchmarkSelectRowsSimpleAppendRowsRowToStructByPos(b *testing.B) {
 				benchRows = benchRows[:0]
 				rows, _ := conn.Query(context.Background(), "select n, 'Adam', 'Smith ' || n, 'male', '1952-06-16'::date, 258, 72, '{foo,bar,baz}'::text[], '2001-01-28 01:02:03-05'::timestamptz from generate_series(100001, 100000 + $1) n", rowCount)
 				var err error
-				benchRows, err = pgx.AppendRows(benchRows, rows, pgx.RowToStructByPos[BenchRowSimple])
+				benchRows, err = dbx.AppendRows(benchRows, rows, dbx.RowToStructByPos[BenchRowSimple])
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -1216,7 +1216,7 @@ func BenchmarkSelectRowsSimpleCollectRowsRowToStructByName(b *testing.B) {
 		b.Run(fmt.Sprintf("%d rows", rowCount), func(b *testing.B) {
 			for b.Loop() {
 				rows, _ := conn.Query(context.Background(), "select n as id, 'Adam' as first_name, 'Smith ' || n as last_name, 'male' as sex, '1952-06-16'::date as birth_date, 258 as weight, 72 as height, '{foo,bar,baz}'::text[] as tags, '2001-01-28 01:02:03-05'::timestamptz as update_time from generate_series(100001, 100000 + $1) n", rowCount)
-				benchRows, err := pgx.CollectRows(rows, pgx.RowToStructByName[BenchRowSimple])
+				benchRows, err := dbx.CollectRows(rows, dbx.RowToStructByName[BenchRowSimple])
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -1241,7 +1241,7 @@ func BenchmarkSelectRowsSimpleAppendRowsRowToStructByName(b *testing.B) {
 				benchRows = benchRows[:0]
 				rows, _ := conn.Query(context.Background(), "select n, 'Adam', 'Smith ' || n, 'male', '1952-06-16'::date, 258, 72, '{foo,bar,baz}'::text[], '2001-01-28 01:02:03-05'::timestamptz from generate_series(100001, 100000 + $1) n", rowCount)
 				var err error
-				benchRows, err = pgx.AppendRows(benchRows, rows, pgx.RowToStructByPos[BenchRowSimple])
+				benchRows, err = dbx.AppendRows(benchRows, rows, dbx.RowToStructByPos[BenchRowSimple])
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -1270,8 +1270,8 @@ func BenchmarkSelectRowsPgConnExecPrepared(b *testing.B) {
 				name string
 				code int16
 			}{
-				{"text", pgx.TextFormatCode},
-				{"binary - mostly", pgx.BinaryFormatCode},
+				{"text", dbx.TextFormatCode},
+				{"binary - mostly", dbx.BinaryFormatCode},
 			}
 			for _, format := range formats {
 				b.Run(format.name, func(b *testing.B) {
@@ -1281,7 +1281,7 @@ func BenchmarkSelectRowsPgConnExecPrepared(b *testing.B) {
 							"ps1",
 							[][]byte{[]byte(strconv.FormatInt(rowCount, 10))},
 							nil,
-							[]int16{format.code, pgx.TextFormatCode, pgx.TextFormatCode, pgx.TextFormatCode, format.code, format.code, format.code, format.code, format.code},
+							[]int16{format.code, dbx.TextFormatCode, dbx.TextFormatCode, dbx.TextFormatCode, format.code, format.code, format.code, format.code, format.code},
 						)
 						for rr.NextRow() {
 							rr.Values()
@@ -1315,8 +1315,8 @@ func BenchmarkSelectRowsPgConnExecStatement(b *testing.B) {
 				name string
 				code int16
 			}{
-				{"text", pgx.TextFormatCode},
-				{"binary - mostly", pgx.BinaryFormatCode},
+				{"text", dbx.TextFormatCode},
+				{"binary - mostly", dbx.BinaryFormatCode},
 			}
 			for _, format := range formats {
 				b.Run(format.name, func(b *testing.B) {
@@ -1326,7 +1326,7 @@ func BenchmarkSelectRowsPgConnExecStatement(b *testing.B) {
 							psd,
 							[][]byte{[]byte(strconv.FormatInt(rowCount, 10))},
 							nil,
-							[]int16{format.code, pgx.TextFormatCode, pgx.TextFormatCode, pgx.TextFormatCode, format.code, format.code, format.code, format.code, format.code},
+							[]int16{format.code, dbx.TextFormatCode, dbx.TextFormatCode, dbx.TextFormatCode, format.code, format.code, format.code, format.code, format.code},
 						)
 						for rr.NextRow() {
 							rr.Values()
@@ -1397,8 +1397,8 @@ func BenchmarkSelectRowsRawPrepared(b *testing.B) {
 				name string
 				code int16
 			}{
-				{"text", pgx.TextFormatCode},
-				{"binary - mostly", pgx.BinaryFormatCode},
+				{"text", dbx.TextFormatCode},
+				{"binary - mostly", dbx.BinaryFormatCode},
 			}
 			for _, format := range formats {
 				b.Run(format.name, func(b *testing.B) {
@@ -1428,7 +1428,7 @@ func BenchmarkSelectRowsRawPrepared(b *testing.B) {
 							"ps1",
 							[][]byte{[]byte(strconv.FormatInt(rowCount, 10))},
 							nil,
-							[]int16{format.code, pgx.TextFormatCode, pgx.TextFormatCode, pgx.TextFormatCode, format.code, format.code, format.code, format.code, format.code},
+							[]int16{format.code, dbx.TextFormatCode, dbx.TextFormatCode, dbx.TextFormatCode, format.code, format.code, format.code, format.code, format.code},
 						)
 						_, err := rr.Close()
 						require.NoError(b, err)

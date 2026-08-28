@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	pgx "github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgtype"
+	"github.com/sthorne/dbx/v5/pgxtest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,7 +43,7 @@ func TestTimestamptzCodecWithLocationUTC(t *testing.T) {
 	skipCockroachDB(t, "Server does not support infinite timestamps (see https://github.com/cockroachdb/cockroach/issues/41564)")
 
 	connTestRunner := defaultConnTestRunner
-	connTestRunner.AfterConnect = func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	connTestRunner.AfterConnect = func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		conn.TypeMap().RegisterType(&pgtype.Type{
 			Name:  "timestamptz",
 			OID:   pgtype.TimestamptzOID,
@@ -60,7 +60,7 @@ func TestTimestamptzCodecWithLocationLocal(t *testing.T) {
 	skipCockroachDB(t, "Server does not support infinite timestamps (see https://github.com/cockroachdb/cockroach/issues/41564)")
 
 	connTestRunner := defaultConnTestRunner
-	connTestRunner.AfterConnect = func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	connTestRunner.AfterConnect = func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		conn.TypeMap().RegisterType(&pgtype.Type{
 			Name:  "timestamptz",
 			OID:   pgtype.TimestamptzOID,
@@ -75,7 +75,7 @@ func TestTimestamptzCodecWithLocationLocal(t *testing.T) {
 
 // https://github.com/jackc/pgx/v4/pgtype/pull/128
 func TestTimestamptzTranscodeBigTimeBinary(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		in := &pgtype.Timestamptz{Time: time.Date(294276, 12, 31, 23, 59, 59, 999999000, time.UTC), Valid: true}
 		var out pgtype.Timestamptz
 
@@ -210,7 +210,7 @@ func TestTimestamptzDecodeTextInvalid(t *testing.T) {
 // exists to hold: the same value scanned in either wire format produces the same
 // time.Time, down to the location it reports.
 func TestTimestamptzTextAndBinaryScanAgree(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		for _, expr := range []string{
 			`'2024-07-01 12:00:00-04'::timestamptz`,
 			`'2024-01-01 12:00:00+05:30'::timestamptz`,
@@ -219,10 +219,10 @@ func TestTimestamptzTextAndBinaryScanAgree(t *testing.T) {
 		} {
 			var binary, text time.Time
 
-			err := conn.QueryRow(ctx, "select "+expr, pgx.QueryExecModeCacheStatement).Scan(&binary)
+			err := conn.QueryRow(ctx, "select "+expr, dbx.QueryExecModeCacheStatement).Scan(&binary)
 			require.NoErrorf(t, err, "%s", expr)
 
-			err = conn.QueryRow(ctx, "select "+expr, pgx.QueryExecModeSimpleProtocol).Scan(&text)
+			err = conn.QueryRow(ctx, "select "+expr, dbx.QueryExecModeSimpleProtocol).Scan(&text)
 			require.NoErrorf(t, err, "%s", expr)
 
 			require.Truef(t, binary.Equal(text), "%s: binary %v, text %v", expr, binary, text)
@@ -236,7 +236,7 @@ func TestTimestamptzTextAndBinaryScanAgree(t *testing.T) {
 func TestTimestamptzTextRoundTrip(t *testing.T) {
 	skipCockroachDB(t, "Server does not support the full PostgreSQL timestamptz range")
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		for _, in := range []time.Time{
 			time.Date(2024, 1, 2, 3, 4, 5, 123456000, time.UTC),
 			time.Date(10000, 1, 2, 3, 4, 5, 123456000, time.UTC),
@@ -246,7 +246,7 @@ func TestTimestamptzTextRoundTrip(t *testing.T) {
 			time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC),
 		} {
 			var out time.Time
-			err := conn.QueryRow(ctx, "select $1::timestamptz", pgx.QueryExecModeSimpleProtocol, in).Scan(&out)
+			err := conn.QueryRow(ctx, "select $1::timestamptz", dbx.QueryExecModeSimpleProtocol, in).Scan(&out)
 			require.NoErrorf(t, err, "%v", in)
 			require.Truef(t, in.Equal(out), "expected %v got %v", in, out)
 		}

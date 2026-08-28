@@ -1,97 +1,97 @@
-package pgx_test
+package dbx_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgxtest"
 	"github.com/stretchr/testify/require"
 )
 
 type testTracer struct {
-	traceQueryStart    func(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context
-	traceQueryEnd      func(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData)
-	traceBatchStart    func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchStartData) context.Context
-	traceBatchQuery    func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchQueryData)
-	traceBatchEnd      func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchEndData)
-	traceCopyFromStart func(ctx context.Context, conn *pgx.Conn, data pgx.TraceCopyFromStartData) context.Context
-	traceCopyFromEnd   func(ctx context.Context, conn *pgx.Conn, data pgx.TraceCopyFromEndData)
-	tracePrepareStart  func(ctx context.Context, conn *pgx.Conn, data pgx.TracePrepareStartData) context.Context
-	tracePrepareEnd    func(ctx context.Context, conn *pgx.Conn, data pgx.TracePrepareEndData)
-	traceConnectStart  func(ctx context.Context, data pgx.TraceConnectStartData) context.Context
-	traceConnectEnd    func(ctx context.Context, data pgx.TraceConnectEndData)
+	traceQueryStart    func(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryStartData) context.Context
+	traceQueryEnd      func(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryEndData)
+	traceBatchStart    func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchStartData) context.Context
+	traceBatchQuery    func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchQueryData)
+	traceBatchEnd      func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchEndData)
+	traceCopyFromStart func(ctx context.Context, conn *dbx.Conn, data dbx.TraceCopyFromStartData) context.Context
+	traceCopyFromEnd   func(ctx context.Context, conn *dbx.Conn, data dbx.TraceCopyFromEndData)
+	tracePrepareStart  func(ctx context.Context, conn *dbx.Conn, data dbx.TracePrepareStartData) context.Context
+	tracePrepareEnd    func(ctx context.Context, conn *dbx.Conn, data dbx.TracePrepareEndData)
+	traceConnectStart  func(ctx context.Context, data dbx.TraceConnectStartData) context.Context
+	traceConnectEnd    func(ctx context.Context, data dbx.TraceConnectEndData)
 }
 
 type ctxKey string
 
-func (tt *testTracer) TraceQueryStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+func (tt *testTracer) TraceQueryStart(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryStartData) context.Context {
 	if tt.traceQueryStart != nil {
 		return tt.traceQueryStart(ctx, conn, data)
 	}
 	return ctx
 }
 
-func (tt *testTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
+func (tt *testTracer) TraceQueryEnd(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryEndData) {
 	if tt.traceQueryEnd != nil {
 		tt.traceQueryEnd(ctx, conn, data)
 	}
 }
 
-func (tt *testTracer) TraceBatchStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchStartData) context.Context {
+func (tt *testTracer) TraceBatchStart(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchStartData) context.Context {
 	if tt.traceBatchStart != nil {
 		return tt.traceBatchStart(ctx, conn, data)
 	}
 	return ctx
 }
 
-func (tt *testTracer) TraceBatchQuery(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchQueryData) {
+func (tt *testTracer) TraceBatchQuery(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchQueryData) {
 	if tt.traceBatchQuery != nil {
 		tt.traceBatchQuery(ctx, conn, data)
 	}
 }
 
-func (tt *testTracer) TraceBatchEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchEndData) {
+func (tt *testTracer) TraceBatchEnd(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchEndData) {
 	if tt.traceBatchEnd != nil {
 		tt.traceBatchEnd(ctx, conn, data)
 	}
 }
 
-func (tt *testTracer) TraceCopyFromStart(ctx context.Context, conn *pgx.Conn, data pgx.TraceCopyFromStartData) context.Context {
+func (tt *testTracer) TraceCopyFromStart(ctx context.Context, conn *dbx.Conn, data dbx.TraceCopyFromStartData) context.Context {
 	if tt.traceCopyFromStart != nil {
 		return tt.traceCopyFromStart(ctx, conn, data)
 	}
 	return ctx
 }
 
-func (tt *testTracer) TraceCopyFromEnd(ctx context.Context, conn *pgx.Conn, data pgx.TraceCopyFromEndData) {
+func (tt *testTracer) TraceCopyFromEnd(ctx context.Context, conn *dbx.Conn, data dbx.TraceCopyFromEndData) {
 	if tt.traceCopyFromEnd != nil {
 		tt.traceCopyFromEnd(ctx, conn, data)
 	}
 }
 
-func (tt *testTracer) TracePrepareStart(ctx context.Context, conn *pgx.Conn, data pgx.TracePrepareStartData) context.Context {
+func (tt *testTracer) TracePrepareStart(ctx context.Context, conn *dbx.Conn, data dbx.TracePrepareStartData) context.Context {
 	if tt.tracePrepareStart != nil {
 		return tt.tracePrepareStart(ctx, conn, data)
 	}
 	return ctx
 }
 
-func (tt *testTracer) TracePrepareEnd(ctx context.Context, conn *pgx.Conn, data pgx.TracePrepareEndData) {
+func (tt *testTracer) TracePrepareEnd(ctx context.Context, conn *dbx.Conn, data dbx.TracePrepareEndData) {
 	if tt.tracePrepareEnd != nil {
 		tt.tracePrepareEnd(ctx, conn, data)
 	}
 }
 
-func (tt *testTracer) TraceConnectStart(ctx context.Context, data pgx.TraceConnectStartData) context.Context {
+func (tt *testTracer) TraceConnectStart(ctx context.Context, data dbx.TraceConnectStartData) context.Context {
 	if tt.traceConnectStart != nil {
 		return tt.traceConnectStart(ctx, data)
 	}
 	return ctx
 }
 
-func (tt *testTracer) TraceConnectEnd(ctx context.Context, data pgx.TraceConnectEndData) {
+func (tt *testTracer) TraceConnectEnd(ctx context.Context, data dbx.TraceConnectEndData) {
 	if tt.traceConnectEnd != nil {
 		tt.traceConnectEnd(ctx, data)
 	}
@@ -103,7 +103,7 @@ func TestTraceExec(t *testing.T) {
 	tracer := &testTracer{}
 
 	ctr := defaultConnTestRunner
-	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *pgx.ConnConfig {
+	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *dbx.ConnConfig {
 		config := defaultConnTestRunner.CreateConfig(ctx, t)
 		config.Tracer = tracer
 		return config
@@ -112,9 +112,9 @@ func TestTraceExec(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		traceQueryStartCalled := false
-		tracer.traceQueryStart = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+		tracer.traceQueryStart = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryStartData) context.Context {
 			traceQueryStartCalled = true
 			require.Equal(t, `select $1::text`, data.SQL)
 			require.Len(t, data.Args, 1)
@@ -123,7 +123,7 @@ func TestTraceExec(t *testing.T) {
 		}
 
 		traceQueryEndCalled := false
-		tracer.traceQueryEnd = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
+		tracer.traceQueryEnd = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryEndData) {
 			traceQueryEndCalled = true
 			require.Equal(t, "foo", ctx.Value(ctxKey("fromTraceQueryStart")))
 			require.Equal(t, `SELECT 1`, data.CommandTag.String())
@@ -143,7 +143,7 @@ func TestTraceQuery(t *testing.T) {
 	tracer := &testTracer{}
 
 	ctr := defaultConnTestRunner
-	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *pgx.ConnConfig {
+	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *dbx.ConnConfig {
 		config := defaultConnTestRunner.CreateConfig(ctx, t)
 		config.Tracer = tracer
 		return config
@@ -152,9 +152,9 @@ func TestTraceQuery(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		traceQueryStartCalled := false
-		tracer.traceQueryStart = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+		tracer.traceQueryStart = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryStartData) context.Context {
 			traceQueryStartCalled = true
 			require.Equal(t, `select $1::text`, data.SQL)
 			require.Len(t, data.Args, 1)
@@ -163,7 +163,7 @@ func TestTraceQuery(t *testing.T) {
 		}
 
 		traceQueryEndCalled := false
-		tracer.traceQueryEnd = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryEndData) {
+		tracer.traceQueryEnd = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryEndData) {
 			traceQueryEndCalled = true
 			require.Equal(t, "foo", ctx.Value(ctxKey("fromTraceQueryStart")))
 			require.Equal(t, `SELECT 1`, data.CommandTag.String())
@@ -185,7 +185,7 @@ func TestTraceBatchNormal(t *testing.T) {
 	tracer := &testTracer{}
 
 	ctr := defaultConnTestRunner
-	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *pgx.ConnConfig {
+	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *dbx.ConnConfig {
 		config := defaultConnTestRunner.CreateConfig(ctx, t)
 		config.Tracer = tracer
 		return config
@@ -194,9 +194,9 @@ func TestTraceBatchNormal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		traceBatchStartCalled := false
-		tracer.traceBatchStart = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchStartData) context.Context {
+		tracer.traceBatchStart = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchStartData) context.Context {
 			traceBatchStartCalled = true
 			require.NotNil(t, data.Batch)
 			require.Equal(t, 2, data.Batch.Len())
@@ -204,20 +204,20 @@ func TestTraceBatchNormal(t *testing.T) {
 		}
 
 		traceBatchQueryCalledCount := 0
-		tracer.traceBatchQuery = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchQueryData) {
+		tracer.traceBatchQuery = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchQueryData) {
 			traceBatchQueryCalledCount++
 			require.Equal(t, "foo", ctx.Value(ctxKey("fromTraceBatchStart")))
 			require.NoError(t, data.Err)
 		}
 
 		traceBatchEndCalled := false
-		tracer.traceBatchEnd = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchEndData) {
+		tracer.traceBatchEnd = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchEndData) {
 			traceBatchEndCalled = true
 			require.Equal(t, "foo", ctx.Value(ctxKey("fromTraceBatchStart")))
 			require.NoError(t, data.Err)
 		}
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue(`select 1`)
 		batch.Queue(`select 2`)
 
@@ -248,7 +248,7 @@ func TestTraceBatchClose(t *testing.T) {
 	tracer := &testTracer{}
 
 	ctr := defaultConnTestRunner
-	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *pgx.ConnConfig {
+	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *dbx.ConnConfig {
 		config := defaultConnTestRunner.CreateConfig(ctx, t)
 		config.Tracer = tracer
 		return config
@@ -257,9 +257,9 @@ func TestTraceBatchClose(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		traceBatchStartCalled := false
-		tracer.traceBatchStart = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchStartData) context.Context {
+		tracer.traceBatchStart = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchStartData) context.Context {
 			traceBatchStartCalled = true
 			require.NotNil(t, data.Batch)
 			require.Equal(t, 2, data.Batch.Len())
@@ -267,20 +267,20 @@ func TestTraceBatchClose(t *testing.T) {
 		}
 
 		traceBatchQueryCalledCount := 0
-		tracer.traceBatchQuery = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchQueryData) {
+		tracer.traceBatchQuery = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchQueryData) {
 			traceBatchQueryCalledCount++
 			require.Equal(t, "foo", ctx.Value(ctxKey("fromTraceBatchStart")))
 			require.NoError(t, data.Err)
 		}
 
 		traceBatchEndCalled := false
-		tracer.traceBatchEnd = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchEndData) {
+		tracer.traceBatchEnd = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchEndData) {
 			traceBatchEndCalled = true
 			require.Equal(t, "foo", ctx.Value(ctxKey("fromTraceBatchStart")))
 			require.NoError(t, data.Err)
 		}
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue(`select 1`)
 		batch.Queue(`select 2`)
 
@@ -299,7 +299,7 @@ func TestTraceBatchErrorWhileReadingResults(t *testing.T) {
 	tracer := &testTracer{}
 
 	ctr := defaultConnTestRunner
-	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *pgx.ConnConfig {
+	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *dbx.ConnConfig {
 		config := defaultConnTestRunner.CreateConfig(ctx, t)
 		config.Tracer = tracer
 		return config
@@ -308,9 +308,9 @@ func TestTraceBatchErrorWhileReadingResults(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, ctr, []pgx.QueryExecMode{pgx.QueryExecModeSimpleProtocol}, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, ctr, []dbx.QueryExecMode{dbx.QueryExecModeSimpleProtocol}, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		traceBatchStartCalled := false
-		tracer.traceBatchStart = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchStartData) context.Context {
+		tracer.traceBatchStart = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchStartData) context.Context {
 			traceBatchStartCalled = true
 			require.NotNil(t, data.Batch)
 			require.Equal(t, 3, data.Batch.Len())
@@ -318,7 +318,7 @@ func TestTraceBatchErrorWhileReadingResults(t *testing.T) {
 		}
 
 		traceBatchQueryCalledCount := 0
-		tracer.traceBatchQuery = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchQueryData) {
+		tracer.traceBatchQuery = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchQueryData) {
 			traceBatchQueryCalledCount++
 			require.Equal(t, "foo", ctx.Value(ctxKey("fromTraceBatchStart")))
 			if traceBatchQueryCalledCount == 2 {
@@ -329,13 +329,13 @@ func TestTraceBatchErrorWhileReadingResults(t *testing.T) {
 		}
 
 		traceBatchEndCalled := false
-		tracer.traceBatchEnd = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchEndData) {
+		tracer.traceBatchEnd = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchEndData) {
 			traceBatchEndCalled = true
 			require.Equal(t, "foo", ctx.Value(ctxKey("fromTraceBatchStart")))
 			require.Error(t, data.Err)
 		}
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue(`select 1`)
 		batch.Queue(`select 2/n-2 from generate_series(0,10) n`)
 		batch.Queue(`select 3`)
@@ -368,7 +368,7 @@ func TestTraceBatchErrorWhileReadingResultsWhileClosing(t *testing.T) {
 	tracer := &testTracer{}
 
 	ctr := defaultConnTestRunner
-	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *pgx.ConnConfig {
+	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *dbx.ConnConfig {
 		config := defaultConnTestRunner.CreateConfig(ctx, t)
 		config.Tracer = tracer
 		return config
@@ -377,9 +377,9 @@ func TestTraceBatchErrorWhileReadingResultsWhileClosing(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, ctr, []pgx.QueryExecMode{pgx.QueryExecModeSimpleProtocol}, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, ctr, []dbx.QueryExecMode{dbx.QueryExecModeSimpleProtocol}, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		traceBatchStartCalled := false
-		tracer.traceBatchStart = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchStartData) context.Context {
+		tracer.traceBatchStart = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchStartData) context.Context {
 			traceBatchStartCalled = true
 			require.NotNil(t, data.Batch)
 			require.Equal(t, 3, data.Batch.Len())
@@ -387,7 +387,7 @@ func TestTraceBatchErrorWhileReadingResultsWhileClosing(t *testing.T) {
 		}
 
 		traceBatchQueryCalledCount := 0
-		tracer.traceBatchQuery = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchQueryData) {
+		tracer.traceBatchQuery = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchQueryData) {
 			traceBatchQueryCalledCount++
 			require.Equal(t, "foo", ctx.Value(ctxKey("fromTraceBatchStart")))
 			if traceBatchQueryCalledCount == 2 {
@@ -398,13 +398,13 @@ func TestTraceBatchErrorWhileReadingResultsWhileClosing(t *testing.T) {
 		}
 
 		traceBatchEndCalled := false
-		tracer.traceBatchEnd = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceBatchEndData) {
+		tracer.traceBatchEnd = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceBatchEndData) {
 			traceBatchEndCalled = true
 			require.Equal(t, "foo", ctx.Value(ctxKey("fromTraceBatchStart")))
 			require.Error(t, data.Err)
 		}
 
-		batch := &pgx.Batch{}
+		batch := &dbx.Batch{}
 		batch.Queue(`select 1`)
 		batch.Queue(`select 2/n-2 from generate_series(0,10) n`)
 		batch.Queue(`select 3`)
@@ -424,7 +424,7 @@ func TestTraceCopyFrom(t *testing.T) {
 	tracer := &testTracer{}
 
 	ctr := defaultConnTestRunner
-	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *pgx.ConnConfig {
+	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *dbx.ConnConfig {
 		config := defaultConnTestRunner.CreateConfig(ctx, t)
 		config.Tracer = tracer
 		return config
@@ -433,20 +433,20 @@ func TestTraceCopyFrom(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 
 		traceCopyFromStartCalled := false
-		tracer.traceCopyFromStart = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceCopyFromStartData) context.Context {
+		tracer.traceCopyFromStart = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceCopyFromStartData) context.Context {
 			traceCopyFromStartCalled = true
-			require.Equal(t, pgx.Identifier{"foo"}, data.TableName)
+			require.Equal(t, dbx.Identifier{"foo"}, data.TableName)
 			require.Equal(t, []string{"a"}, data.ColumnNames)
 			return context.WithValue(ctx, ctxKey("fromTraceCopyFromStart"), "foo")
 		}
 
 		traceCopyFromEndCalled := false
-		tracer.traceCopyFromEnd = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceCopyFromEndData) {
+		tracer.traceCopyFromEnd = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceCopyFromEndData) {
 			traceCopyFromEndCalled = true
 			require.Equal(t, "foo", ctx.Value(ctxKey("fromTraceCopyFromStart")))
 			require.Equal(t, `COPY 2`, data.CommandTag.String())
@@ -461,7 +461,7 @@ func TestTraceCopyFrom(t *testing.T) {
 			{nil},
 		}
 
-		copyCount, err := conn.CopyFrom(ctx, pgx.Identifier{"foo"}, []string{"a"}, pgx.CopyFromRows(inputRows))
+		copyCount, err := conn.CopyFrom(ctx, dbx.Identifier{"foo"}, []string{"a"}, dbx.CopyFromRows(inputRows))
 		require.NoError(t, err)
 		require.EqualValues(t, len(inputRows), copyCount)
 		require.True(t, traceCopyFromStartCalled)
@@ -475,7 +475,7 @@ func TestTracePrepare(t *testing.T) {
 	tracer := &testTracer{}
 
 	ctr := defaultConnTestRunner
-	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *pgx.ConnConfig {
+	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *dbx.ConnConfig {
 		config := defaultConnTestRunner.CreateConfig(ctx, t)
 		config.Tracer = tracer
 		return config
@@ -484,9 +484,9 @@ func TestTracePrepare(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		tracePrepareStartCalled := false
-		tracer.tracePrepareStart = func(ctx context.Context, conn *pgx.Conn, data pgx.TracePrepareStartData) context.Context {
+		tracer.tracePrepareStart = func(ctx context.Context, conn *dbx.Conn, data dbx.TracePrepareStartData) context.Context {
 			tracePrepareStartCalled = true
 			require.Equal(t, `ps`, data.Name)
 			require.Equal(t, `select $1::text`, data.SQL)
@@ -494,7 +494,7 @@ func TestTracePrepare(t *testing.T) {
 		}
 
 		tracePrepareEndCalled := false
-		tracer.tracePrepareEnd = func(ctx context.Context, conn *pgx.Conn, data pgx.TracePrepareEndData) {
+		tracer.tracePrepareEnd = func(ctx context.Context, conn *dbx.Conn, data dbx.TracePrepareEndData) {
 			tracePrepareEndCalled = true
 			require.False(t, data.AlreadyPrepared)
 			require.NoError(t, data.Err)
@@ -507,7 +507,7 @@ func TestTracePrepare(t *testing.T) {
 
 		tracePrepareStartCalled = false
 		tracePrepareEndCalled = false
-		tracer.tracePrepareEnd = func(ctx context.Context, conn *pgx.Conn, data pgx.TracePrepareEndData) {
+		tracer.tracePrepareEnd = func(ctx context.Context, conn *dbx.Conn, data dbx.TracePrepareEndData) {
 			tracePrepareEndCalled = true
 			require.True(t, data.AlreadyPrepared)
 			require.NoError(t, data.Err)
@@ -529,38 +529,38 @@ func TestTraceConnect(t *testing.T) {
 	config.Tracer = tracer
 
 	traceConnectStartCalled := false
-	tracer.traceConnectStart = func(ctx context.Context, data pgx.TraceConnectStartData) context.Context {
+	tracer.traceConnectStart = func(ctx context.Context, data dbx.TraceConnectStartData) context.Context {
 		traceConnectStartCalled = true
 		require.NotNil(t, data.ConnConfig)
 		return context.WithValue(ctx, ctxKey("fromTraceConnectStart"), "foo")
 	}
 
 	traceConnectEndCalled := false
-	tracer.traceConnectEnd = func(ctx context.Context, data pgx.TraceConnectEndData) {
+	tracer.traceConnectEnd = func(ctx context.Context, data dbx.TraceConnectEndData) {
 		traceConnectEndCalled = true
 		require.NotNil(t, data.Conn)
 		require.NoError(t, data.Err)
 	}
 
-	conn1, err := pgx.ConnectConfig(context.Background(), config)
+	conn1, err := dbx.ConnectConfig(context.Background(), config)
 	require.NoError(t, err)
 	defer conn1.Close(context.Background())
 	require.True(t, traceConnectStartCalled)
 	require.True(t, traceConnectEndCalled)
 
-	config, err = pgx.ParseConfig("host=/invalid")
+	config, err = dbx.ParseConfig("host=/invalid")
 	require.NoError(t, err)
 	config.Tracer = tracer
 
 	traceConnectStartCalled = false
 	traceConnectEndCalled = false
-	tracer.traceConnectEnd = func(ctx context.Context, data pgx.TraceConnectEndData) {
+	tracer.traceConnectEnd = func(ctx context.Context, data dbx.TraceConnectEndData) {
 		traceConnectEndCalled = true
 		require.Nil(t, data.Conn)
 		require.Error(t, data.Err)
 	}
 
-	conn2, err := pgx.ConnectConfig(context.Background(), config)
+	conn2, err := dbx.ConnectConfig(context.Background(), config)
 	require.Nil(t, conn2)
 	require.Error(t, err)
 	require.True(t, traceConnectStartCalled)
@@ -576,7 +576,7 @@ func TestTraceWithinTx(t *testing.T) {
 	tracer := &testTracer{}
 
 	ctr := defaultConnTestRunner
-	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *pgx.ConnConfig {
+	ctr.CreateConfig = func(ctx context.Context, t testing.TB) *dbx.ConnConfig {
 		config := defaultConnTestRunner.CreateConfig(ctx, t)
 		config.Tracer = tracer
 		return config
@@ -585,9 +585,9 @@ func TestTraceWithinTx(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, ctr, nil, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		var queries []string
-		tracer.traceQueryStart = func(ctx context.Context, conn *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+		tracer.traceQueryStart = func(ctx context.Context, conn *dbx.Conn, data dbx.TraceQueryStartData) context.Context {
 			queries = append(queries, data.SQL)
 			return ctx
 		}

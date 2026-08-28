@@ -6,8 +6,8 @@ import (
 	"encoding/xml"
 	"testing"
 
-	pgx "github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgxtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +50,7 @@ func TestXMLCodec(t *testing.T) {
 // https://github.com/jackc/pgx/issues/1273#issuecomment-1221414648
 func TestXMLCodecUnmarshalSQLNull(t *testing.T) {
 	skipCockroachDB(t, "CockroachDB does not support XML.")
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		// Byte arrays are nilified
 		slice := []byte{10, 4}
 		err := conn.QueryRow(ctx, "select null::xml").Scan(&slice)
@@ -85,7 +85,7 @@ func TestXMLCodecUnmarshalSQLNull(t *testing.T) {
 
 func TestXMLCodecPointerToPointerToString(t *testing.T) {
 	skipCockroachDB(t, "CockroachDB does not support XML.")
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		var s *string
 		err := conn.QueryRow(ctx, "select ''::xml").Scan(&s)
 		require.NoError(t, err)
@@ -101,7 +101,7 @@ func TestXMLCodecPointerToPointerToString(t *testing.T) {
 // https://github.com/jackc/pgx/issues/1691
 func TestXMLCodecPointerIndirection(t *testing.T) {
 	skipCockroachDB(t, "CockroachDB does not support XML.")
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		// More levels of indirection than TestXMLCodecPointerToPointerToString.
 		var ps **string
 		err := conn.QueryRow(ctx, "select ''::xml").Scan(&ps)
@@ -134,7 +134,7 @@ func TestXMLCodecPointerIndirection(t *testing.T) {
 
 func TestXMLCodecDecodeValue(t *testing.T) {
 	skipCockroachDB(t, "CockroachDB does not support XML.")
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, _ testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, _ testing.TB, conn *dbx.Conn) {
 		for _, tt := range []struct {
 			sql      string
 			expected any

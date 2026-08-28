@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5/internal/pgdatetime"
-	"github.com/jackc/pgx/v5/internal/pgio"
+	"github.com/sthorne/dbx/v5/internal/pgdatetime"
+	"github.com/sthorne/dbx/v5/internal/pgio"
 )
 
 type DateScanner interface {

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/internal/pgdatetime"
+	"github.com/sthorne/dbx/v5/internal/pgdatetime"
 )
 
 func date(year, month, day int) time.Time {

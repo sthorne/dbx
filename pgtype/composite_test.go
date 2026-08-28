@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"testing"
 
-	pgx "github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCompositeCodecTranscode(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		_, err := conn.Exec(ctx, `drop type if exists ct_test;
 
 create type ct_test as (
@@ -29,15 +29,15 @@ create type ct_test as (
 			name string
 			code int16
 		}{
-			{name: "TextFormat", code: pgx.TextFormatCode},
-			{name: "BinaryFormat", code: pgx.BinaryFormatCode},
+			{name: "TextFormat", code: dbx.TextFormatCode},
+			{name: "BinaryFormat", code: dbx.BinaryFormatCode},
 		}
 
 		for _, format := range formats {
 			var a string
 			var b int32
 
-			err := conn.QueryRow(ctx, "select $1::ct_test", pgx.QueryResultFormats{format.code},
+			err := conn.QueryRow(ctx, "select $1::ct_test", dbx.QueryResultFormats{format.code},
 				pgtype.CompositeFields{"hi", int32(42)},
 			).Scan(
 				pgtype.CompositeFields{&a, &b},
@@ -70,7 +70,7 @@ func (s stringerInt32) String() string {
 
 // https://github.com/jackc/pgx/discussions/2527
 func TestCompositeCodecTranscodeWithStringerInt(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		_, err := conn.Exec(ctx, `drop type if exists ct_stringer_test;
 
 create type ct_stringer_test as (
@@ -88,8 +88,8 @@ create type ct_stringer_test as (
 			name string
 			code int16
 		}{
-			{name: "TextFormat", code: pgx.TextFormatCode},
-			{name: "BinaryFormat", code: pgx.BinaryFormatCode},
+			{name: "TextFormat", code: dbx.TextFormatCode},
+			{name: "BinaryFormat", code: dbx.BinaryFormatCode},
 		}
 
 		// Pass the same stringerInt32 value for both fields. The text field should get the Stringer value
@@ -98,7 +98,7 @@ create type ct_stringer_test as (
 			var a string
 			var b int16
 
-			err := conn.QueryRow(ctx, "select $1::ct_stringer_test", pgx.QueryResultFormats{format.code},
+			err := conn.QueryRow(ctx, "select $1::ct_stringer_test", dbx.QueryResultFormats{format.code},
 				pgtype.CompositeFields{stringerInt32Bar, stringerInt32Bar},
 			).Scan(
 				pgtype.CompositeFields{&a, &b},
@@ -149,7 +149,7 @@ func (p *point3d) ScanIndex(i int) any {
 }
 
 func TestCompositeCodecTranscodeStruct(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		_, err := conn.Exec(ctx, `drop type if exists point3d;
 
 create type point3d as (
@@ -168,14 +168,14 @@ create type point3d as (
 			name string
 			code int16
 		}{
-			{name: "TextFormat", code: pgx.TextFormatCode},
-			{name: "BinaryFormat", code: pgx.BinaryFormatCode},
+			{name: "TextFormat", code: dbx.TextFormatCode},
+			{name: "BinaryFormat", code: dbx.BinaryFormatCode},
 		}
 
 		for _, format := range formats {
 			input := point3d{X: 1, Y: 2, Z: 3}
 			var output point3d
-			err := conn.QueryRow(ctx, "select $1::point3d", pgx.QueryResultFormats{format.code}, input).Scan(&output)
+			err := conn.QueryRow(ctx, "select $1::point3d", dbx.QueryResultFormats{format.code}, input).Scan(&output)
 			require.NoErrorf(t, err, "%v", format.name)
 			require.Equalf(t, input, output, "%v", format.name)
 		}
@@ -183,7 +183,7 @@ create type point3d as (
 }
 
 func TestCompositeCodecTranscodeStructWrapper(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		_, err := conn.Exec(ctx, `drop type if exists point3d;
 
 create type point3d as (
@@ -202,8 +202,8 @@ create type point3d as (
 			name string
 			code int16
 		}{
-			{name: "TextFormat", code: pgx.TextFormatCode},
-			{name: "BinaryFormat", code: pgx.BinaryFormatCode},
+			{name: "TextFormat", code: dbx.TextFormatCode},
+			{name: "BinaryFormat", code: dbx.BinaryFormatCode},
 		}
 
 		type anotherPoint struct {
@@ -213,7 +213,7 @@ create type point3d as (
 		for _, format := range formats {
 			input := anotherPoint{X: 1, Y: 2, Z: 3}
 			var output anotherPoint
-			err := conn.QueryRow(ctx, "select $1::point3d", pgx.QueryResultFormats{format.code}, input).Scan(&output)
+			err := conn.QueryRow(ctx, "select $1::point3d", dbx.QueryResultFormats{format.code}, input).Scan(&output)
 			require.NoErrorf(t, err, "%v", format.name)
 			require.Equalf(t, input, output, "%v", format.name)
 		}
@@ -257,7 +257,7 @@ func (p *parent) ScanIndex(i int) any {
 
 // https://github.com/jackc/pgx/issues/2453
 func TestCompositeCodecTranscodeStructWithNilPointer(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		skipCockroachDB(t, "Server does not support nested composite types")
 
 		_, err := conn.Exec(ctx, `drop type if exists parent;
@@ -285,14 +285,14 @@ create type parent as (
 			name string
 			code int16
 		}{
-			{name: "TextFormat", code: pgx.TextFormatCode},
-			{name: "BinaryFormat", code: pgx.BinaryFormatCode},
+			{name: "TextFormat", code: dbx.TextFormatCode},
+			{name: "BinaryFormat", code: dbx.BinaryFormatCode},
 		}
 
 		for _, format := range formats {
 			input := parent{Name: "test", Location: nil}
 			var output parent
-			err := conn.QueryRow(ctx, "select $1::parent", pgx.QueryResultFormats{format.code}, input).Scan(&output)
+			err := conn.QueryRow(ctx, "select $1::parent", dbx.QueryResultFormats{format.code}, input).Scan(&output)
 			require.NoErrorf(t, err, "%v", format.name)
 			require.Equalf(t, input, output, "%v", format.name)
 		}
@@ -336,7 +336,7 @@ func (p *parentWithSlice) ScanIndex(i int) any {
 
 // https://github.com/jackc/pgx/issues/2453
 func TestCompositeCodecTranscodeStructWithSliceOfNilPointer(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		skipCockroachDB(t, "Server does not support nested composite types")
 
 		_, err := conn.Exec(ctx, `drop type if exists parent;
@@ -364,14 +364,14 @@ create type parent_with_slice as (
 			name string
 			code int16
 		}{
-			{name: "TextFormat", code: pgx.TextFormatCode},
-			{name: "BinaryFormat", code: pgx.BinaryFormatCode},
+			{name: "TextFormat", code: dbx.TextFormatCode},
+			{name: "BinaryFormat", code: dbx.BinaryFormatCode},
 		}
 
 		for _, format := range formats {
 			input := parentWithSlice{Name: "test", Locations: []*point3d{nil}}
 			var output parentWithSlice
-			err := conn.QueryRow(ctx, "select $1::parent_with_slice", pgx.QueryResultFormats{format.code}, input).Scan(&output)
+			err := conn.QueryRow(ctx, "select $1::parent_with_slice", dbx.QueryResultFormats{format.code}, input).Scan(&output)
 			require.NoErrorf(t, err, "%v", format.name)
 			require.Equalf(t, input, output, "%v", format.name)
 		}
@@ -397,7 +397,7 @@ func (c compositeWithJsonbValuer) Index(i int) any {
 }
 
 func TestCompositeCodecTypedNilFieldWithValuer(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		_, err := conn.Exec(ctx, `drop type if exists composite_with_jsonb;
 create type composite_with_jsonb as (
 	name text,
@@ -414,8 +414,8 @@ create type composite_with_jsonb as (
 			name string
 			code int16
 		}{
-			{name: "TextFormat", code: pgx.TextFormatCode},
-			{name: "BinaryFormat", code: pgx.BinaryFormatCode},
+			{name: "TextFormat", code: dbx.TextFormatCode},
+			{name: "BinaryFormat", code: dbx.BinaryFormatCode},
 		}
 
 		for _, format := range formats {
@@ -423,7 +423,7 @@ create type composite_with_jsonb as (
 			var gotName, gotData string
 			err := conn.QueryRow(ctx,
 				"select (r).name, (r).data::text from (select $1::composite_with_jsonb as r) s",
-				pgx.QueryResultFormats{format.code}, input,
+				dbx.QueryResultFormats{format.code}, input,
 			).Scan(&gotName, &gotData)
 			require.NoErrorf(t, err, "%v", format.name)
 			require.Equalf(t, "test", gotName, "%v", format.name)
@@ -433,7 +433,7 @@ create type composite_with_jsonb as (
 }
 
 func TestCompositeCodecDecodeValue(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		_, err := conn.Exec(ctx, `drop type if exists point3d;
 
 create type point3d as (
@@ -452,12 +452,12 @@ create type point3d as (
 			name string
 			code int16
 		}{
-			{name: "TextFormat", code: pgx.TextFormatCode},
-			{name: "BinaryFormat", code: pgx.BinaryFormatCode},
+			{name: "TextFormat", code: dbx.TextFormatCode},
+			{name: "BinaryFormat", code: dbx.BinaryFormatCode},
 		}
 
 		for _, format := range formats {
-			rows, err := conn.Query(ctx, "select '(1,2,3)'::point3d", pgx.QueryResultFormats{format.code})
+			rows, err := conn.Query(ctx, "select '(1,2,3)'::point3d", dbx.QueryResultFormats{format.code})
 			require.NoErrorf(t, err, "%v", format.name)
 			require.True(t, rows.Next())
 			values, err := rows.Values()
@@ -477,7 +477,7 @@ create type point3d as (
 func TestCompositeCodecTranscodeStructWrapperForTable(t *testing.T) {
 	skipCockroachDB(t, "Server does not support composite types from table definitions")
 
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		_, err := conn.Exec(ctx, `drop table if exists point3d;
 
 create table point3d (
@@ -496,8 +496,8 @@ create table point3d (
 			name string
 			code int16
 		}{
-			{name: "TextFormat", code: pgx.TextFormatCode},
-			{name: "BinaryFormat", code: pgx.BinaryFormatCode},
+			{name: "TextFormat", code: dbx.TextFormatCode},
+			{name: "BinaryFormat", code: dbx.BinaryFormatCode},
 		}
 
 		type anotherPoint struct {
@@ -507,7 +507,7 @@ create table point3d (
 		for _, format := range formats {
 			input := anotherPoint{X: 1, Y: 2, Z: 3}
 			var output anotherPoint
-			err := conn.QueryRow(ctx, "select $1::point3d", pgx.QueryResultFormats{format.code}, input).Scan(&output)
+			err := conn.QueryRow(ctx, "select $1::point3d", dbx.QueryResultFormats{format.code}, input).Scan(&output)
 			require.NoErrorf(t, err, "%v", format.name)
 			require.Equalf(t, input, output, "%v", format.name)
 		}

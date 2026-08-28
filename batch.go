@@ -1,11 +1,11 @@
-package pgx
+package dbx
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgconn"
 )
 
 // QueuedQuery is a query that has been queued for execution via a [Batch].

@@ -3,7 +3,7 @@ package pgxpool
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/sthorne/dbx/v5"
 )
 
 // AcquireTracer traces Acquire.
@@ -18,7 +18,7 @@ type AcquireTracer interface {
 type TraceAcquireStartData struct{}
 
 type TraceAcquireEndData struct {
-	Conn *pgx.Conn
+	Conn *dbx.Conn
 	Err  error
 }
 
@@ -29,5 +29,5 @@ type ReleaseTracer interface {
 }
 
 type TraceReleaseData struct {
-	Conn *pgx.Conn
+	Conn *dbx.Conn
 }

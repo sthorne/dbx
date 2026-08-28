@@ -1,11 +1,15 @@
-[![Go Reference](https://pkg.go.dev/badge/github.com/jackc/pgx/v5.svg)](https://pkg.go.dev/github.com/jackc/pgx/v5)
-[![Build Status](https://github.com/jackc/pgx/actions/workflows/ci.yml/badge.svg)](https://github.com/jackc/pgx/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/sthorne/dbx/v5.svg)](https://pkg.go.dev/github.com/sthorne/dbx/v5)
+[![Build Status](https://github.com/sthorne/dbx/actions/workflows/ci.yml/badge.svg)](https://github.com/sthorne/dbx/actions/workflows/ci.yml)
 
-# pgx - PostgreSQL Driver and Toolkit
+# dbx - PostgreSQL Driver and Toolkit with DNS Load Balancing
 
-pgx is a pure Go driver and toolkit for PostgreSQL.
+dbx is a pure Go driver and toolkit for PostgreSQL, forked from [pgx](https://github.com/jackc/pgx). The goal of the
+fork is first-class DNS-based load balancing when connecting to multi-server clusters such as CockroachDB: DNS names
+are expanded to the underlying server IP addresses, per-server performance and availability metrics are tracked over
+time, and new connections prefer the servers with the lowest observed latency. See the `dnslb` package and the
+[DNS-Based Load Balancing](#dns-based-load-balancing-and-metrics) section below.
 
-The pgx driver is a low-level, high performance interface that exposes PostgreSQL-specific features such as `LISTEN` /
+The dbx driver is a low-level, high performance interface that exposes PostgreSQL-specific features such as `LISTEN` /
 `NOTIFY` and `COPY`. It also includes an adapter for the standard `database/sql` interface.
 
 The toolkit component is a related set of packages that implement PostgreSQL functionality such as parsing the wire protocol
@@ -17,7 +21,7 @@ proxies, load balancers, logical replication clients, etc.
 ### Installation
 
 ```bash
-go get github.com/jackc/pgx/v5
+go get github.com/sthorne/dbx/v5
 ```
 
 ### Example Usage
@@ -30,12 +34,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/sthorne/dbx/v5"
 )
 
 func main() {
 	// urlExample := "postgres://username:password@localhost:5432/database_name"
-	conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+	conn, err := dbx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		os.Exit(1)
@@ -56,16 +60,54 @@ func main() {
 
 ### Connection Configuration
 
-`pgx.Connect` and `pgxpool.New` accept PostgreSQL connection URLs (such as `postgres://user:pass@host:5432/db?sslmode=verify-full`) as well as `key=value` strings. See [`pgconn.ParseConfig`](https://pkg.go.dev/github.com/jackc/pgx/v5/pgconn#ParseConfig) and the [PostgreSQL connection string documentation](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING) for supported options and environment variables.
+`dbx.Connect` and `pgxpool.New` accept PostgreSQL connection URLs (such as `postgres://user:pass@host:5432/db?sslmode=verify-full`) as well as `key=value` strings. See [`pgconn.ParseConfig`](https://pkg.go.dev/github.com/sthorne/dbx/v5/pgconn#ParseConfig) and the [PostgreSQL connection string documentation](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING) for supported options and environment variables.
 
 For a step-by-step walkthrough, see the [getting started guide](https://github.com/jackc/pgx/wiki/Getting-started-with-pgx).
 
+### DNS-Based Load Balancing and Metrics
+
+The `dnslb` package resolves any DNS names in the connection config and expands them to the underlying IP addresses,
+so a single DNS name pointing at a CockroachDB (or any multi-server PostgreSQL-compatible) cluster fans out across all
+nodes. New connections prefer the server with the lowest observed latency, never-tried servers are explored first, and
+servers that are failing to accept connections are pushed to the back until they recover. DNS is re-resolved on every
+new connection attempt, so cluster membership changes are picked up automatically.
+
+Per-server metrics are tracked over time — availability, dial attempts and failures, active connections, query counts
+and errors, slow responses, and min/max/average/EWMA latency — and are available programmatically via
+`Balancer.Metrics()` or as a printable table via `Balancer.Report()`.
+
+```go
+balancer := dnslb.New(dnslb.Config{
+	SlowThreshold: 100 * time.Millisecond, // queries at or above this count as slow
+})
+
+config, err := pgxpool.ParseConfig("postgres://root@cockroachdb.internal:26257/defaultdb")
+if err != nil {
+	// handle error
+}
+balancer.Apply(config.ConnConfig)
+
+pool, err := pgxpool.NewWithConfig(context.Background(), config)
+if err != nil {
+	// handle error
+}
+defer pool.Close()
+
+// ... use the pool ...
+
+fmt.Println(balancer.Report())
+// SERVER     AVAIL%  DIALS  DIALERR  ACTIVE  QUERIES  ERRORS  SLOW  AVG     EWMA    MIN     MAX      LAST ERROR
+// 10.0.0.11  100.0   4      0        4       1523     0       2     1.31ms  1.24ms  0.42ms  112.4ms
+// 10.0.0.12  100.0   3      0        3       1102     1       0     1.52ms  1.48ms  0.51ms  48.21ms  unexpected EOF
+// 10.0.0.13  50.0    2      1        1       310      0       0     9.87ms  9.61ms  4.11ms  38.05ms  dial tcp: connection refused
+```
+
 ## Documentation
 
-Package documentation and API reference are available on [pkg.go.dev](https://pkg.go.dev/github.com/jackc/pgx/v5):
-* [`pgx`](https://pkg.go.dev/github.com/jackc/pgx/v5) — base PostgreSQL driver
-* [`pgxpool`](https://pkg.go.dev/github.com/jackc/pgx/v5/pgxpool) — concurrency-safe connection pool
-* [`stdlib`](https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib) — `database/sql` compatibility adapter
+Package documentation and API reference are available on [pkg.go.dev](https://pkg.go.dev/github.com/sthorne/dbx/v5):
+* [`pgx`](https://pkg.go.dev/github.com/sthorne/dbx/v5) — base PostgreSQL driver
+* [`pgxpool`](https://pkg.go.dev/github.com/sthorne/dbx/v5/pgxpool) — concurrency-safe connection pool
+* [`stdlib`](https://pkg.go.dev/github.com/sthorne/dbx/v5/stdlib) — `database/sql` compatibility adapter
 
 ## Features
 

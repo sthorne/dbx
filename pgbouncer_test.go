@@ -1,4 +1,4 @@
-package pgx_test
+package dbx_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/sthorne/dbx/v5"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 )
@@ -21,27 +21,27 @@ func TestPgbouncerQueryExecModes(t *testing.T) {
 
 	tests := []struct {
 		name                     string
-		mode                     pgx.QueryExecMode
+		mode                     dbx.QueryExecMode
 		statementCacheCapacity   int
 		descriptionCacheCapacity int
 	}{
 		{
 			name:                   "cache statement",
-			mode:                   pgx.QueryExecModeCacheStatement,
+			mode:                   dbx.QueryExecModeCacheStatement,
 			statementCacheCapacity: 32,
 		},
 		{
 			name:                     "cache describe",
-			mode:                     pgx.QueryExecModeCacheDescribe,
+			mode:                     dbx.QueryExecModeCacheDescribe,
 			descriptionCacheCapacity: 32,
 		},
 		{
 			name: "exec",
-			mode: pgx.QueryExecModeExec,
+			mode: dbx.QueryExecModeExec,
 		},
 		{
 			name: "simple protocol",
-			mode: pgx.QueryExecModeSimpleProtocol,
+			mode: dbx.QueryExecModeSimpleProtocol,
 		},
 	}
 
@@ -64,10 +64,10 @@ func TestPgbouncerStatementCacheEviction(t *testing.T) {
 	}
 
 	config := mustParseConfig(t, connString)
-	config.DefaultQueryExecMode = pgx.QueryExecModeCacheStatement
+	config.DefaultQueryExecMode = dbx.QueryExecModeCacheStatement
 	config.StatementCacheCapacity = 8
 
-	conn, err := pgx.ConnectConfig(t.Context(), config)
+	conn, err := dbx.ConnectConfig(t.Context(), config)
 	require.NoError(t, err)
 	defer conn.Close(t.Context())
 
@@ -80,7 +80,7 @@ func TestPgbouncerStatementCacheEviction(t *testing.T) {
 	}
 }
 
-func testPgbouncer(t *testing.T, config *pgx.ConnConfig, workers, iterations int) {
+func testPgbouncer(t *testing.T, config *dbx.ConnConfig, workers, iterations int) {
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
 	defer cancel()
 
@@ -88,7 +88,7 @@ func testPgbouncer(t *testing.T, config *pgx.ConnConfig, workers, iterations int
 
 	for range workers {
 		eg.Go(func() (err error) {
-			conn, err := pgx.ConnectConfig(ctx, config)
+			conn, err := dbx.ConnectConfig(ctx, config)
 			if err != nil {
 				return err
 			}
@@ -103,7 +103,7 @@ func testPgbouncer(t *testing.T, config *pgx.ConnConfig, workers, iterations int
 	require.NoError(t, eg.Wait())
 }
 
-func exercisePgbouncerConn(ctx context.Context, conn *pgx.Conn, iterations int) error {
+func exercisePgbouncerConn(ctx context.Context, conn *dbx.Conn, iterations int) error {
 	for i := range iterations {
 		var i32 int32
 		var i64 int64
@@ -144,7 +144,7 @@ func exercisePgbouncerConn(ctx context.Context, conn *pgx.Conn, iterations int) 
 		return err
 	}
 
-	batch := &pgx.Batch{}
+	batch := &dbx.Batch{}
 	batch.Queue("select $1::int4", int32(44))
 	batch.Queue("select $1::text", "batch")
 	batchResults := conn.SendBatch(ctx, batch)

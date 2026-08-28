@@ -1,4 +1,4 @@
-package pgx
+package dbx
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/sthorne/dbx/v5/pgconn"
+	"github.com/sthorne/dbx/v5/pgtype"
 )
 
 // Rows is the result set returned from [Conn.Query]. Rows must be closed before
@@ -98,7 +98,7 @@ type Row interface {
 // [pgtype.CompositeIndexScanner]. A type implementing both must therefore dispatch within ScanRow, because the number of
 // columns is not known until the row arrives:
 //
-//	func (p *Person) ScanRow(rows pgx.Rows) error {
+//	func (p *Person) ScanRow(rows dbx.Rows) error {
 //		if fds := rows.FieldDescriptions(); len(fds) == 1 {
 //			// Scan the single column via p's pgtype.CompositeIndexScanner implementation. rows.Scan(p) would
 //			// call ScanRow again.

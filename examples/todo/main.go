@@ -6,14 +6,14 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/sthorne/dbx/v5"
 )
 
-var conn *pgx.Conn
+var conn *dbx.Conn
 
 func main() {
 	var err error
-	conn, err = pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+	conn, err = dbx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connection to database: %v\n", err)
 		os.Exit(1)

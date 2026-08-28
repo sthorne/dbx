@@ -12,7 +12,7 @@
 // comes last, after any time zone. Go's layout language can express none of those, which
 // is why the format is written out here rather than left to time.Format.
 //
-// This is the only implementation of the format in pgx. pgtype's date, timestamp and
+// This is the only implementation of the format in dbx. pgtype's date, timestamp and
 // timestamptz text encoders and the simple protocol's query sanitizer all go through it,
 // so they cannot drift apart.
 package pgdatetime

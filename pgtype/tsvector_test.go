@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgtype"
+	"github.com/sthorne/dbx/v5/pgxtest"
 )
 
 func isExpectedEqTSVector(a any) func(any) bool {
@@ -47,7 +47,7 @@ func isExpectedEqTSVector(a any) func(any) bool {
 
 func tsvectorConnTestRunner(t *testing.T) pgxtest.ConnTestRunner {
 	ctr := defaultConnTestRunner
-	ctr.AfterConnect = func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	ctr.AfterConnect = func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		var tsvectorOID uint32
 		err := conn.QueryRow(context.Background(), `select oid from pg_type where typname = 'tsvector'`).Scan(&tsvectorOID)
 		if err != nil {

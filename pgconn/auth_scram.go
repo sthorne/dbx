@@ -29,7 +29,7 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/jackc/pgx/v5/pgproto3"
+	"github.com/sthorne/dbx/v5/pgproto3"
 	"golang.org/x/text/secure/precis"
 )
 

@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgxpool"
+	"github.com/sthorne/dbx/v5/pgxtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -74,7 +74,7 @@ func TestConstructorIgnoresContext(t *testing.T) {
 	config, err := pgxpool.ParseConfig(os.Getenv("PGX_TEST_DATABASE"))
 	assert.NoError(t, err)
 	var cancel func()
-	config.BeforeConnect = func(context.Context, *pgx.ConnConfig) error {
+	config.BeforeConnect = func(context.Context, *dbx.ConnConfig) error {
 		// cancel the query's context before we actually Dial to ensure the Dial's
 		// context isn't cancelled
 		cancel()
@@ -172,7 +172,7 @@ func TestPoolAcquireChecksIdleConns(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	controllerConn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	controllerConn, err := dbx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
 	require.NoError(t, err)
 	defer controllerConn.Close(ctx)
 	pgxtest.SkipCockroachDB(t, controllerConn, "Server does not support pg_terminate_backend() (https://github.com/cockroachdb/cockroach/issues/35897)")
@@ -191,7 +191,7 @@ func TestPoolAcquireChecksIdleConns(t *testing.T) {
 	require.EqualValues(t, 3, pool.Stat().TotalConns())
 
 	var pids []uint32
-	var originalConns []*pgx.Conn
+	var originalConns []*dbx.Conn
 	for _, c := range conns {
 		pids = append(pids, c.Conn().PgConn().PID())
 		originalConns = append(originalConns, c.Conn())
@@ -232,7 +232,7 @@ func TestPoolAcquireChecksIdleConnsWithShouldPing(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	controllerConn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	controllerConn, err := dbx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
 	require.NoError(t, err)
 	defer controllerConn.Close(ctx)
 
@@ -335,7 +335,7 @@ func TestPoolBeforeConnect(t *testing.T) {
 	config, err := pgxpool.ParseConfig(os.Getenv("PGX_TEST_DATABASE"))
 	require.NoError(t, err)
 
-	config.BeforeConnect = func(ctx context.Context, cfg *pgx.ConnConfig) error {
+	config.BeforeConnect = func(ctx context.Context, cfg *dbx.ConnConfig) error {
 		cfg.Config.RuntimeParams["application_name"] = "pgx"
 		return nil
 	}
@@ -359,7 +359,7 @@ func TestPoolAfterConnect(t *testing.T) {
 	config, err := pgxpool.ParseConfig(os.Getenv("PGX_TEST_DATABASE"))
 	require.NoError(t, err)
 
-	config.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
+	config.AfterConnect = func(ctx context.Context, c *dbx.Conn) error {
 		_, err := c.Prepare(ctx, "ps1", "select 1")
 		return err
 	}
@@ -385,7 +385,7 @@ func TestPoolBeforeAcquire(t *testing.T) {
 
 	acquireAttempts := 0
 
-	config.BeforeAcquire = func(ctx context.Context, c *pgx.Conn) bool {
+	config.BeforeAcquire = func(ctx context.Context, c *dbx.Conn) bool {
 		acquireAttempts++
 		return acquireAttempts%2 == 0
 	}
@@ -429,7 +429,7 @@ func TestPoolPrepareConn(t *testing.T) {
 
 	acquireAttempts := 0
 
-	config.PrepareConn = func(context.Context, *pgx.Conn) (bool, error) {
+	config.PrepareConn = func(context.Context, *dbx.Conn) (bool, error) {
 		acquireAttempts++
 		var err error
 		if acquireAttempts%3 == 0 {
@@ -493,7 +493,7 @@ func TestPoolAfterRelease(t *testing.T) {
 
 	afterReleaseCount := 0
 
-	config.AfterRelease = func(c *pgx.Conn) bool {
+	config.AfterRelease = func(c *dbx.Conn) bool {
 		afterReleaseCount++
 		return afterReleaseCount%2 == 1
 	}
@@ -505,7 +505,7 @@ func TestPoolAfterRelease(t *testing.T) {
 	// Count distinct connections by identity instead of by backend PID. PostgreSQL can assign a terminated backend's
 	// PID to a new backend, which made this test flaky in CI. Retaining the connections in the map also prevents them
 	// from being garbage collected, so a destroyed connection's address cannot be reused either.
-	distinctConns := map[*pgx.Conn]struct{}{}
+	distinctConns := map[*dbx.Conn]struct{}{}
 
 	for range 10 {
 		conn, err := db.Acquire(ctx)
@@ -534,7 +534,7 @@ func TestPoolBeforeClose(t *testing.T) {
 	require.NoError(t, err)
 
 	connPIDs := make(chan uint32, 5)
-	config.BeforeClose = func(c *pgx.Conn) {
+	config.BeforeClose = func(c *dbx.Conn) {
 		connPIDs <- c.PgConn().PID()
 	}
 
@@ -858,7 +858,7 @@ func TestPoolQueryRowErrNoRows(t *testing.T) {
 	defer pool.Close()
 
 	err = pool.QueryRow(ctx, "select n from generate_series(1,10) n where n=0").Scan(nil)
-	require.Equal(t, pgx.ErrNoRows, err)
+	require.Equal(t, dbx.ErrNoRows, err)
 }
 
 // https://github.com/jackc/pgx/issues/1628
@@ -924,7 +924,7 @@ func TestPoolCopyFrom(t *testing.T) {
 		{nil, nil, nil, nil, nil, nil, nil},
 	}
 
-	copyCount, err := pool.CopyFrom(ctx, pgx.Identifier{"poolcopyfromtest"}, []string{"a", "b", "c", "d", "e", "f", "g"}, pgx.CopyFromRows(inputRows))
+	copyCount, err := pool.CopyFrom(ctx, dbx.Identifier{"poolcopyfromtest"}, []string{"a", "b", "c", "d", "e", "f", "g"}, dbx.CopyFromRows(inputRows))
 	assert.NoError(t, err)
 	assert.EqualValues(t, len(inputRows), copyCount)
 
@@ -1085,8 +1085,8 @@ func TestConnReleaseWhenBeginFail(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	tx, err := db.BeginTx(ctx, pgx.TxOptions{
-		IsoLevel: pgx.TxIsoLevel("foo"),
+	tx, err := db.BeginTx(ctx, dbx.TxOptions{
+		IsoLevel: dbx.TxIsoLevel("foo"),
 	})
 	require.Error(t, err)
 	require.Zero(t, tx)
@@ -1104,7 +1104,7 @@ func TestConnDestroyedWhenBeginFailsFatally(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	controllerConn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	controllerConn, err := dbx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
 	require.NoError(t, err)
 	defer controllerConn.Close(ctx)
 	pgxtest.SkipCockroachDB(t, controllerConn, "Server does not support pg_terminate_backend() (https://github.com/cockroachdb/cockroach/issues/35897)")
@@ -1113,7 +1113,7 @@ func TestConnDestroyedWhenBeginFailsFatally(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	tx, err := db.BeginTx(ctx, pgx.TxOptions{BeginQuery: "select pg_terminate_backend(pg_backend_pid())"})
+	tx, err := db.BeginTx(ctx, dbx.TxOptions{BeginQuery: "select pg_terminate_backend(pg_backend_pid())"})
 	require.Error(t, err)
 	require.Zero(t, tx)
 
@@ -1150,15 +1150,15 @@ func TestTxBeginFuncNestedTransactionCommit(t *testing.T) {
 		db.Exec(ctx, "drop table pgxpooltx")
 	}()
 
-	err = pgx.BeginFunc(ctx, db, func(db pgx.Tx) error {
+	err = dbx.BeginFunc(ctx, db, func(db dbx.Tx) error {
 		_, err := db.Exec(ctx, "insert into pgxpooltx(id) values (1)")
 		require.NoError(t, err)
 
-		err = pgx.BeginFunc(ctx, db, func(db pgx.Tx) error {
+		err = dbx.BeginFunc(ctx, db, func(db dbx.Tx) error {
 			_, err := db.Exec(ctx, "insert into pgxpooltx(id) values (2)")
 			require.NoError(t, err)
 
-			err = pgx.BeginFunc(ctx, db, func(db pgx.Tx) error {
+			err = dbx.BeginFunc(ctx, db, func(db dbx.Tx) error {
 				_, err := db.Exec(ctx, "insert into pgxpooltx(id) values (3)")
 				require.NoError(t, err)
 				return nil
@@ -1200,11 +1200,11 @@ func TestTxBeginFuncNestedTransactionRollback(t *testing.T) {
 		db.Exec(ctx, "drop table pgxpooltx")
 	}()
 
-	err = pgx.BeginFunc(ctx, db, func(db pgx.Tx) error {
+	err = dbx.BeginFunc(ctx, db, func(db dbx.Tx) error {
 		_, err := db.Exec(ctx, "insert into pgxpooltx(id) values (1)")
 		require.NoError(t, err)
 
-		err = pgx.BeginFunc(ctx, db, func(db pgx.Tx) error {
+		err = dbx.BeginFunc(ctx, db, func(db dbx.Tx) error {
 			_, err := db.Exec(ctx, "insert into pgxpooltx(id) values (2)")
 			require.NoError(t, err)
 			return errors.New("do a rollback")
@@ -1253,11 +1253,11 @@ func TestConnectEagerlyReachesMinPoolSize(t *testing.T) {
 	var acquireAttempts atomic.Int64
 	var connectAttempts atomic.Int64
 
-	config.PrepareConn = func(ctx context.Context, conn *pgx.Conn) (bool, error) {
+	config.PrepareConn = func(ctx context.Context, conn *dbx.Conn) (bool, error) {
 		acquireAttempts.Add(1)
 		return true, nil
 	}
-	config.BeforeConnect = func(ctx context.Context, cfg *pgx.ConnConfig) error {
+	config.BeforeConnect = func(ctx context.Context, cfg *dbx.ConnConfig) error {
 		connectAttempts.Add(1)
 		return nil
 	}
@@ -1293,7 +1293,7 @@ func TestPoolSendBatchBatchCloseTwice(t *testing.T) {
 
 	for range testCount {
 		go func() {
-			batch := &pgx.Batch{}
+			batch := &dbx.Batch{}
 			batch.Queue("select 1")
 			batch.Queue("select 2")
 
@@ -1433,7 +1433,7 @@ func TestPoolAcquirePingTimeout(t *testing.T) {
 	config.PingTimeout = 200 * time.Millisecond
 	config.ConnConfig.DialFunc = newDelayProxyDialFunc(500 * time.Millisecond)
 
-	var originalConn *pgx.Conn
+	var originalConn *dbx.Conn
 	// Only ping the original connection to force creation of a new connection
 	config.ShouldPing = func(_ context.Context, params pgxpool.ShouldPingParams) bool {
 		return originalConn != nil && params.Conn == originalConn

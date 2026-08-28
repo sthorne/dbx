@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxtest"
+	"github.com/sthorne/dbx/v5"
+	"github.com/sthorne/dbx/v5/pgtype"
+	"github.com/sthorne/dbx/v5/pgxtest"
 )
 
 func isExpectedEqMapStringString(a any) func(any) bool {
@@ -61,7 +61,7 @@ func stringPtr(s string) *string {
 
 func TestHstoreCodec(t *testing.T) {
 	ctr := defaultConnTestRunner
-	ctr.AfterConnect = func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	ctr.AfterConnect = func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		var hstoreOID uint32
 		err := conn.QueryRow(context.Background(), `select oid from pg_type where typname = 'hstore'`).Scan(&hstoreOID)
 		if err != nil {
@@ -224,7 +224,7 @@ func TestHstoreCodec(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	pgxtest.RunWithQueryExecModes(ctx, t, ctr, pgxtest.AllQueryExecModes, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	pgxtest.RunWithQueryExecModes(ctx, t, ctr, pgxtest.AllQueryExecModes, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		h := pgtype.Hstore{"should_be_erased": nil}
 		err := conn.QueryRow(ctx, `select cast(null as hstore)`).Scan(&h)
 		if err != nil {

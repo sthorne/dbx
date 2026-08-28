@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	pgx "github.com/jackc/pgx/v5"
+	"github.com/sthorne/dbx/v5"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEnumCodec(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		_, err := conn.Exec(ctx, `drop type if exists enum_test;
 
 create type enum_test as enum ('foo', 'bar', 'baz');`)
@@ -45,7 +45,7 @@ create type enum_test as enum ('foo', 'bar', 'baz');`)
 }
 
 func TestEnumCodecValues(t *testing.T) {
-	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *pgx.Conn) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, t testing.TB, conn *dbx.Conn) {
 		_, err := conn.Exec(ctx, `drop type if exists enum_test;
 
 create type enum_test as enum ('foo', 'bar', 'baz');`)

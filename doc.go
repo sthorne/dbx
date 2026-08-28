@@ -2,14 +2,14 @@
 /*
 pgx provides a native PostgreSQL driver and can act as a [database/sql/driver]. The native PostgreSQL interface is similar
 to the [database/sql] interface while providing better speed and access to PostgreSQL specific features. Use
-[github.com/jackc/pgx/v5/stdlib] to use pgx as a database/sql compatible driver. See that package's documentation for
+[github.com/sthorne/dbx/v5/stdlib] to use pgx as a database/sql compatible driver. See that package's documentation for
 details.
 
 Establishing a Connection
 
-The primary way of establishing a connection is with [pgx.Connect]:
+The primary way of establishing a connection is with [dbx.Connect]:
 
-    conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+    conn, err := dbx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
 
 The database connection string can be in URL or key/value format. Both PostgreSQL settings and pgx settings can be
 specified here. In addition, a config struct can be created by [ParseConfig] and modified before establishing the
@@ -18,8 +18,8 @@ string.
 
 Connection Pool
 
-[*pgx.Conn] represents a single connection to the database and is not concurrency safe. Use package
-[github.com/jackc/pgx/v5/pgxpool] for a concurrency safe connection pool.
+[*dbx.Conn] represents a single connection to the database and is not concurrency safe. Use package
+[github.com/sthorne/dbx/v5/pgxpool] for a concurrency safe connection pool.
 
 Query Interface
 
@@ -30,7 +30,7 @@ pgx implements [Conn.Query] in the familiar database/sql style. However, pgx pro
 [CollectRows] can be used collect all returned rows into a slice.
 
     rows, _ := conn.Query(context.Background(), "select generate_series(1,$1)", 5)
-    numbers, err := pgx.CollectRows(rows, pgx.RowTo[int32])
+    numbers, err := dbx.CollectRows(rows, dbx.RowTo[int32])
     if err != nil {
       return err
     }
@@ -41,7 +41,7 @@ directly.
 
     var sum, n int32
     rows, _ := conn.Query(context.Background(), "select generate_series(1,$1)", 10)
-    _, err := pgx.ForEachRow(rows, []any{&n}, func() error {
+    _, err := dbx.ForEachRow(rows, []any{&n}, func() error {
       sum += n
       return nil
     })
@@ -93,7 +93,7 @@ collected via [CollectRows] and [RowToStructByName] (or
 
     rows, _ := conn.Query(ctx,
         "select group_id, array_agg(thing_id) as thing_ids from things group by group_id")
-    entries, err := pgx.CollectRows(rows, pgx.RowToStructByName[ThingEntry])
+    entries, err := dbx.CollectRows(rows, dbx.RowToStructByName[ThingEntry])
 
 Transactions
 
@@ -126,7 +126,7 @@ a pseudo nested transaction.
 [BeginFunc] and [BeginTxFunc] are functions that begin a transaction, execute a function, and commit or rollback the
 transaction depending on the return value of the function. These can be simpler and less error prone to use.
 
-    err = pgx.BeginFunc(context.Background(), conn, func(tx pgx.Tx) error {
+    err = dbx.BeginFunc(context.Background(), conn, func(tx dbx.Tx) error {
         _, err := tx.Exec(context.Background(), "insert into foo(id) values (1)")
         return err
     })
@@ -154,9 +154,9 @@ Or implement [CopyFromSource] to avoid buffering the entire data set in memory.
 
     copyCount, err := conn.CopyFrom(
         context.Background(),
-        pgx.Identifier{"people"},
+        dbx.Identifier{"people"},
         []string{"first_name", "last_name", "age"},
-        pgx.CopyFromRows(rows),
+        dbx.CopyFromRows(rows),
     )
 
 When you already have a typed array using [CopyFromSlice] can be more convenient.
@@ -168,9 +168,9 @@ When you already have a typed array using [CopyFromSlice] can be more convenient
 
     copyCount, err := conn.CopyFrom(
         context.Background(),
-        pgx.Identifier{"people"},
+        dbx.Identifier{"people"},
         []string{"first_name", "last_name", "age"},
-        pgx.CopyFromSlice(len(rows), func(i int) ([]any, error) {
+        dbx.CopyFromSlice(len(rows), func(i int) ([]any, error) {
             return []any{rows[i].FirstName, rows[i].LastName, rows[i].Age}, nil
         }),
     )
@@ -196,16 +196,16 @@ notification is received or the context is canceled.
 
 Tracing and Logging
 
-pgx supports tracing by setting [ConnConfig.Tracer]. To combine several tracers you can use the [github.com/jackc/pgx/v5/multitracer.Tracer].
+pgx supports tracing by setting [ConnConfig.Tracer]. To combine several tracers you can use the [github.com/sthorne/dbx/v5/multitracer.Tracer].
 
-In addition, the [github.com/jackc/pgx/v5/tracelog] package provides the [github.com/jackc/pgx/v5/tracelog.TraceLog] type which lets a
+In addition, the [github.com/sthorne/dbx/v5/tracelog] package provides the [github.com/sthorne/dbx/v5/tracelog.TraceLog] type which lets a
 traditional logger act as a [QueryTracer].
 
-For debug tracing of the actual PostgreSQL wire protocol messages see [github.com/jackc/pgx/v5/pgproto3].
+For debug tracing of the actual PostgreSQL wire protocol messages see [github.com/sthorne/dbx/v5/pgproto3].
 
 Lower Level PostgreSQL Functionality
 
-[github.com/jackc/pgx/v5/pgconn] contains a lower level PostgreSQL driver roughly at the level of libpq. [Conn] is
+[github.com/sthorne/dbx/v5/pgconn] contains a lower level PostgreSQL driver roughly at the level of libpq. [Conn] is
 implemented on top of [pgconn.PgConn]. The [Conn.PgConn] method can be used to access this lower layer.
 
 PgBouncer
@@ -223,8 +223,8 @@ PgBouncer may assign a different server connection between the describe and exec
 
 SQL-level prepared statements created with PREPARE are not supported by PgBouncer in transaction pooling mode.
 */
-package pgx
+package dbx
 
 import (
-	_ "github.com/jackc/pgx/v5/pgconn" // Just for allowing godoc to resolve "pgconn"
+	_ "github.com/sthorne/dbx/v5/pgconn" // Just for allowing godoc to resolve "pgconn"
 )

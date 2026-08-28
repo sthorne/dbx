@@ -6,11 +6,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgproto3"
+	"github.com/sthorne/dbx/v5/pgproto3"
 )
 
 // Conn is a wrapper for a net.Conn that allows inspection and modification of messages between a PostgreSQL client and
-// server. It is designed to be used in tests that use a *pgx.Conn or *pgconn.PgConn connected to a real PostgreSQL
+// server. It is designed to be used in tests that use a *dbx.Conn or *pgconn.PgConn connected to a real PostgreSQL
 // server. Instead of mocking an entire server connection, this is used to specify and modify only the particular
 // aspects of a connection that are necessary. This can be easier to setup and is more true to real world conditions.
 //
