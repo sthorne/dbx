@@ -119,12 +119,15 @@ func (o *LargeObject) Read(p []byte) (int, error) {
 
 		res := pgtype.PreallocBytes(p[nTotal:])
 		err := o.tx.QueryRow(o.ctx, "select loread($1, $2)", o.fd, expected).Scan(&res)
+		if err != nil {
+			// res still has the length of the buffer it was preallocated from, not of
+			// anything read. Counting it would report a full read alongside the error,
+			// and io.ReadFull discards an error that comes with a full count.
+			return nTotal, err
+		}
 		// We compute expected so that it always fits into p, so it should never happen
 		// that PreallocBytes's ScanBytes had to allocate a new slice.
 		nTotal += len(res)
-		if err != nil {
-			return nTotal, err
-		}
 
 		if len(res) < expected {
 			return nTotal, io.EOF
