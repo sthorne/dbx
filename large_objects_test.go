@@ -304,3 +304,65 @@ func TestLargeObjectsMultipleTransactions(t *testing.T) {
 		t.Errorf("Expected undefined_object error (42704), got %#v", err)
 	}
 }
+
+// A failed loread must not be counted as bytes read. Read used to add the length of
+// its preallocated buffer before checking the error, so it returned a full count
+// together with the error, and io.ReadFull, which keeps an error only when the count
+// falls short, silently dropped it.
+func TestLargeObjectsReadErrorReportsNoBytes(t *testing.T) {
+	// Several chunks, so the failure is on a later message, after some bytes were read.
+	pgx.SetMaxLargeObjectMessageLength(t, 2)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	conn, err := pgx.Connect(ctx, os.Getenv("PGX_TEST_DATABASE"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(ctx)
+
+	pgxtest.SkipCockroachDB(t, conn, "Server does support large objects")
+
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+
+	lo := tx.LargeObjects()
+	id, err := lo.Create(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	obj, err := lo.Open(ctx, id, pgx.LargeObjectModeRead|pgx.LargeObjectModeWrite)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := obj.Write([]byte("testing")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := obj.Seek(0, io.SeekStart); err != nil {
+		t.Fatal(err)
+	}
+	// Closing the descriptor makes every later loread fail.
+	if err := obj.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	buf := make([]byte, 7)
+	n, err := obj.Read(buf)
+	if err == nil {
+		t.Fatal("Read on a closed descriptor returned no error")
+	}
+	if n != 0 {
+		t.Errorf("Read returned %d bytes along with %v; want 0", n, err)
+	}
+
+	// The case that hid the error: io.ReadFull over the object. The failed loread
+	// aborted the transaction, so this read fails too; the error must reach the caller.
+	n, err = io.ReadFull(obj, buf)
+	if err == nil {
+		t.Fatalf("io.ReadFull returned %d bytes and no error after a failed loread", n)
+	}
+}

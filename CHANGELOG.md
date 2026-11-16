@@ -90,6 +90,12 @@
 
 ## Fixes
 
+* `LargeObject.Read` no longer reports a full read when a `loread` fails. It counted the length of the buffer it
+  preallocated before checking the error, so it returned `len(p)` together with the error. `io.ReadFull` and
+  `io.ReadAtLeast` discard an error that comes with a full count, so a failed read (a serialization failure, a closed
+  descriptor) went unnoticed and only the next statement failed, with `25P02`. `Read` now returns the bytes of the
+  messages that succeeded.
+
 * pgconn: a backslash as the last byte of a quoted value in a keyword/value connection string no longer panics with
   `slice bounds out of range`. `host='a\` -- and the shorter `='\`, reachable through `pgx.ParseConfig` and
   `pgxpool.ParseConfig` -- now return `unterminated quoted string in connection info string`, libpq's own message for
